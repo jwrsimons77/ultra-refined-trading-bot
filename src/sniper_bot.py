@@ -12,6 +12,7 @@ from transformers import AutoTokenizer, AutoModelForSequenceClassification, pipe
 import torch
 from tqdm import tqdm
 import logging
+import pytz
 
 warnings.filterwarnings('ignore')
 
@@ -21,6 +22,10 @@ class SniperBot:
     """
     
     def __init__(self, initial_capital: float = 1000.0, max_daily_trades: int = 3):
+        # Setup logging first
+        logging.basicConfig(level=logging.INFO)
+        self.logger = logging.getLogger(__name__)
+        
         self.initial_capital = initial_capital
         self.current_capital = initial_capital
         self.max_daily_trades = max_daily_trades
@@ -55,10 +60,6 @@ class SniperBot:
         
         # Initialize sentiment analyzer
         self.sentiment_analyzer = self._initialize_sentiment_analyzer()
-        
-        # Setup logging
-        logging.basicConfig(level=logging.INFO)
-        self.logger = logging.getLogger(__name__)
     
     def _load_sp500_tickers(self) -> List[str]:
         """Load S&P 500 ticker symbols."""
@@ -109,7 +110,7 @@ class SniperBot:
             if not all(col in df.columns for col in required_columns):
                 raise ValueError(f"CSV must contain columns: {required_columns}")
             
-            # Convert date column
+            # Convert date column to datetime
             df['date'] = pd.to_datetime(df['date'])
             
             # Add source column if missing
@@ -227,6 +228,10 @@ class SniperBot:
     def get_price_data(self, ticker: str, start_date: datetime, days_ahead: int = 10) -> Dict:
         """Fetch price data for backtesting."""
         try:
+            # Convert start_date to timezone-aware if it's not already
+            if start_date.tzinfo is None:
+                start_date = pytz.timezone('America/New_York').localize(start_date)
+            
             end_date = start_date + timedelta(days=days_ahead + 10)  # Extra buffer
             
             stock = yf.Ticker(ticker)
@@ -419,6 +424,12 @@ class SniperBot:
             date = trade['date']
             sentiment_score = trade['sentiment_score']
             confidence_score = trade['confidence_score']
+            
+            # Ensure date is a datetime object
+            if isinstance(date, str):
+                date = pd.to_datetime(date)
+            elif hasattr(date, 'to_pydatetime'):
+                date = date.to_pydatetime()
             
             # Get price data
             price_data = self.get_price_data(ticker, date)

@@ -13,6 +13,10 @@ import time as time_module
 import logging
 import pytz
 
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 # Import our modules
 try:
     from forex_signal_generator import ForexSignalGenerator
@@ -374,7 +378,7 @@ def get_live_signals(min_confidence=0.25):
         return []
 
 def calculate_trade_pnl(signal, position_size=1000):
-    """Calculate potential profit and loss for a trade."""
+    """Calculate potential profit and loss for a trade with proper leverage accounting."""
     # Calculate pip values
     if 'JPY' in signal.pair:
         pip_value = 0.01
@@ -391,28 +395,78 @@ def calculate_trade_pnl(signal, position_size=1000):
         pips_to_target = (signal.entry_price - signal.target_price) * pip_multiplier
         pips_to_stop = (signal.stop_loss - signal.entry_price) * pip_multiplier
     
-    # Calculate dollar amounts (simplified calculation)
-    # For major pairs, 1 pip for 1000 units ≈ $0.10
-    pip_value_usd = 0.10 if 'JPY' not in signal.pair else 0.07
+    # Calculate proper pip values based on position size and currency pair
+    # Standard forex pip values for different position sizes:
+    # - For major pairs (EUR/USD, GBP/USD, etc.): 1 pip = $0.0001 * position_size
+    # - For JPY pairs: 1 pip = $0.01 * position_size / current_price
     
-    potential_profit = pips_to_target * pip_value_usd * (position_size / 1000)
-    potential_loss = pips_to_stop * pip_value_usd * (position_size / 1000)
+    if 'JPY' in signal.pair:
+        # For JPY pairs, pip value depends on current price
+        # Approximate pip value: (0.01 / current_price) * position_size
+        pip_value_usd = (0.01 / signal.entry_price) * position_size
+    else:
+        # For major pairs: pip value = 0.0001 * position_size
+        pip_value_usd = 0.0001 * position_size
+    
+    # Calculate actual P&L in USD
+    potential_profit = pips_to_target * pip_value_usd
+    potential_loss = pips_to_stop * pip_value_usd
+    
+    # Calculate margin required (this shows the leverage effect)
+    # Typical margin requirements for 30:1 leverage: ~3.33% for majors, ~5% for minors
+    margin_rates = {
+        'EUR/USD': 0.0333, 'GBP/USD': 0.0333, 'USD/JPY': 0.0333,
+        'USD/CHF': 0.0333, 'AUD/USD': 0.0333, 'USD/CAD': 0.0333,
+        'NZD/USD': 0.05  # Higher margin for minor pairs (20:1 leverage)
+    }
+    
+    margin_rate = margin_rates.get(signal.pair, 0.05)  # Default 5% (20:1 leverage)
+    
+    # Calculate margin required
+    if signal.pair.startswith('USD/'):
+        # USD is base currency
+        margin_required = position_size * margin_rate
+    else:
+        # USD is quote currency
+        margin_required = position_size * signal.entry_price * margin_rate
+    
+    # Calculate effective leverage
+    notional_value = position_size * signal.entry_price if not signal.pair.startswith('USD/') else position_size
+    effective_leverage = notional_value / margin_required if margin_required > 0 else 1
     
     return {
         'pips_to_target': round(pips_to_target, 1),
         'pips_to_stop': round(pips_to_stop, 1),
         'potential_profit': round(potential_profit, 2),
         'potential_loss': round(potential_loss, 2),
-        'risk_reward_ratio': round(pips_to_target / pips_to_stop, 2) if pips_to_stop > 0 else 0
+        'risk_reward_ratio': round(pips_to_target / pips_to_stop, 2) if pips_to_stop > 0 else 0,
+        'margin_required': round(margin_required, 2),
+        'effective_leverage': round(effective_leverage, 1),
+        'notional_value': round(notional_value, 2)
     }
 
 def calculate_position_size_from_risk(account_balance, risk_percentage, stop_loss_pips):
-    """Calculate position size based on risk percentage."""
+    """Calculate position size based on risk percentage with proper leverage accounting."""
     risk_amount = account_balance * (risk_percentage / 100)
-    # For major pairs, 1 pip for 1000 units ≈ $0.10
-    pip_value = 0.10
-    position_size = (risk_amount / (stop_loss_pips * pip_value)) * 1000
-    return max(100, min(10000, int(position_size)))  # Min 100, max 10,000 units
+    
+    # Calculate position size based on actual pip values
+    # This accounts for the fact that larger positions have proportionally larger pip values
+    
+    if stop_loss_pips > 0:
+        # For major pairs: pip value = 0.0001 * position_size
+        # So: risk_amount = stop_loss_pips * 0.0001 * position_size
+        # Therefore: position_size = risk_amount / (stop_loss_pips * 0.0001)
+        position_size = risk_amount / (stop_loss_pips * 0.0001)
+        
+        # Ensure reasonable position size limits
+        min_position = 1000    # Minimum 1,000 units
+        max_position = 100000  # Maximum 100,000 units (considering leverage)
+        
+        position_size = max(min_position, min(max_position, int(position_size)))
+    else:
+        position_size = 1000  # Default minimum
+    
+    return position_size
 
 def render_live_signals(market_status):
     """Render live trading signals with detailed profit/loss information."""
@@ -523,178 +577,173 @@ def render_signal_card(signal, index, position_type, position_size, risk_percent
     # Determine if market is open
     market_open = market_status and market_status.get('is_open', False) if market_status else False
     
+    # Create a container for the signal
     with st.container():
-        # Enhanced signal header with auto-execute indicator
+        # Signal header
         signal_emoji = "🟢" if signal.signal_type == "BUY" else "🔴"
-        signal_class = "signal-card-buy" if signal.signal_type == "BUY" else "signal-card-sell"
         
         # Auto-execute badge
-        auto_badge = ""
         if auto_execute:
-            auto_badge = """
-            <div style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: white; padding: 0.5rem 1rem; border-radius: 20px; display: inline-block; margin-bottom: 1rem; font-weight: bold;">
-                🤖 AUTO-EXECUTE ELIGIBLE
-            </div>
-            """
+            st.info("🤖 **AUTO-EXECUTE ELIGIBLE** - High confidence signal")
         
         # Market closed warning
-        market_warning = ""
         if not market_open and auto_execute:
-            # Only show market warning for auto-execute signals
-            market_warning = """
-            <div style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: white; padding: 0.5rem 1rem; border-radius: 20px; display: inline-block; margin-bottom: 1rem; font-weight: bold;">
-                ⚠️ MARKET CLOSED - Auto-Execute Disabled
-            </div>
-            """
+            st.warning("⚠️ **MARKET CLOSED** - Auto-execute disabled until market reopens")
         
-        # Color coding for confidence
-        if signal.confidence >= 0.75:
-            confidence_color = "#047857"
-            confidence_bg = "#d1fae5"
+        # Main signal info
+        st.markdown(f"## {signal_emoji} {signal.signal_type} {signal.pair}")
+        
+        # Confidence display
+        confidence_pct = signal.confidence * 100
+        if confidence_pct >= 75:
+            confidence_color = "🟢"
             confidence_text = "VERY HIGH"
-        elif signal.confidence >= 0.60:
-            confidence_color = "#059669"
-            confidence_bg = "#ecfdf5"
+        elif confidence_pct >= 60:
+            confidence_color = "🟡"
             confidence_text = "HIGH"
-        elif signal.confidence >= 0.45:
-            confidence_color = "#92400e"
-            confidence_bg = "#fef3c7"
+        elif confidence_pct >= 45:
+            confidence_color = "🟠"
             confidence_text = "MEDIUM"
         else:
-            confidence_color = "#374151"
-            confidence_bg = "#f3f4f6"
+            confidence_color = "🔴"
             confidence_text = "LOW"
         
-        st.markdown(f"""
-        <div class="{signal_class}" style="
-            background: linear-gradient(135deg, {'#ecfdf5' if signal.signal_type == 'BUY' else '#fef2f2'} 0%, {'#d1fae5' if signal.signal_type == 'BUY' else '#fecaca'} 100%);
-            border-radius: 15px;
-            padding: 2rem;
-            margin: 2rem 0;
-            border-left: 8px solid {'#10b981' if signal.signal_type == 'BUY' else '#ef4444'};
-            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
-            {'' if market_open else 'opacity: 0.7; filter: grayscale(20%);'}
-        ">
-            {auto_badge}
-            {market_warning}
-            <h2 style="font-size: 2.8rem; margin-bottom: 1rem; color: #1f2937;">
-                {signal_emoji} {signal.signal_type} {signal.pair}
-            </h2>
-            <div style="background: {confidence_bg}; padding: 1rem; border-radius: 10px; margin-bottom: 1rem;">
-                <p style="font-size: 1.6rem; color: {confidence_color}; font-weight: bold; margin: 0;">
-                    <strong>Confidence:</strong> {signal.confidence:.1%} ({confidence_text})
-                </p>
-            </div>
-            <p style="font-size: 1.4rem; color: #374151; margin: 0;">
-                <strong>Reason:</strong> {signal.reason}
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown(f"**Confidence:** {confidence_color} {confidence_pct:.1f}% ({confidence_text})")
+        st.markdown(f"**Reason:** {signal.reason}")
         
-        # Price levels with larger text
-        st.markdown("#### 📊 Price Levels")
+        # Price levels
+        st.markdown("### 📊 Price Levels")
         col1, col2, col3, col4 = st.columns(4)
         
         with col1:
-            st.markdown(f"""
-            <div style="text-align: center; padding: 1rem; background: #f8fafc; border-radius: 10px;">
-                <h4 style="color: #374151; font-size: 1.3rem; margin-bottom: 0.5rem;">Entry Price</h4>
-                <p style="font-size: 2rem; font-weight: bold; color: #1f2937; margin: 0;">{signal.entry_price:.5f}</p>
-            </div>
-            """, unsafe_allow_html=True)
+            st.metric("Entry Price", f"{signal.entry_price:.5f}")
         with col2:
-            st.markdown(f"""
-            <div style="text-align: center; padding: 1rem; background: #ecfdf5; border-radius: 10px;">
-                <h4 style="color: #047857; font-size: 1.3rem; margin-bottom: 0.5rem;">Target</h4>
-                <p style="font-size: 2rem; font-weight: bold; color: #047857; margin: 0;">{signal.target_price:.5f}</p>
-                <p style="font-size: 1.2rem; color: #047857; margin: 0;">+{pnl_data['pips_to_target']:.1f} pips</p>
-            </div>
-            """, unsafe_allow_html=True)
+            st.metric("Target", f"{signal.target_price:.5f}", f"+{pnl_data['pips_to_target']:.1f} pips")
         with col3:
-            st.markdown(f"""
-            <div style="text-align: center; padding: 1rem; background: #fef2f2; border-radius: 10px;">
-                <h4 style="color: #dc2626; font-size: 1.3rem; margin-bottom: 0.5rem;">Stop Loss</h4>
-                <p style="font-size: 2rem; font-weight: bold; color: #dc2626; margin: 0;">{signal.stop_loss:.5f}</p>
-                <p style="font-size: 1.2rem; color: #dc2626; margin: 0;">-{pnl_data['pips_to_stop']:.1f} pips</p>
-            </div>
-            """, unsafe_allow_html=True)
+            st.metric("Stop Loss", f"{signal.stop_loss:.5f}", f"-{pnl_data['pips_to_stop']:.1f} pips")
         with col4:
-            st.markdown(f"""
-            <div style="text-align: center; padding: 1rem; background: #fffbeb; border-radius: 10px;">
-                <h4 style="color: #92400e; font-size: 1.3rem; margin-bottom: 0.5rem;">Risk:Reward</h4>
-                <p style="font-size: 2rem; font-weight: bold; color: #92400e; margin: 0;">1:{pnl_data['risk_reward_ratio']:.1f}</p>
-            </div>
-            """, unsafe_allow_html=True)
+            st.metric("Risk:Reward", f"1:{pnl_data['risk_reward_ratio']:.1f}")
         
-        # Profit/Loss Calculation Section with enhanced visibility
-        st.markdown("#### 💰 Profit/Loss Calculation")
+        # Profit/Loss Calculation
+        st.markdown("### 💰 Profit/Loss Calculation")
         
         col1, col2, col3, col4 = st.columns(4)
         
         with col1:
-            st.markdown(f"""
-            <div style="text-align: center; padding: 1.5rem; background: #f1f5f9; border-radius: 12px; border: 2px solid #64748b;">
-                <h4 style="color: #334155; font-size: 1.4rem; margin-bottom: 0.5rem;">Position Size</h4>
-                <p style="font-size: 1.8rem; font-weight: bold; color: #1e293b; margin: 0;">{display_position_size:,} units</p>
-                <p style="font-size: 1.1rem; color: #64748b; margin: 0;">{risk_info}</p>
-            </div>
-            """, unsafe_allow_html=True)
+            st.metric("Position Size", f"{display_position_size:,} units", risk_info)
         with col2:
-            st.markdown(f"""
-            <div style="text-align: center; padding: 1.5rem; background: #ecfdf5; border-radius: 12px; border: 2px solid #10b981;">
-                <h4 style="color: #047857; font-size: 1.4rem; margin-bottom: 0.5rem;">Potential Profit</h4>
-                <p style="font-size: 2.2rem; font-weight: bold; color: #047857; margin: 0;">£{pnl_data['potential_profit']:.2f}</p>
-                <p style="font-size: 1.2rem; color: #047857; margin: 0;">+{pnl_data['pips_to_target']:.1f} pips</p>
-            </div>
-            """, unsafe_allow_html=True)
+            st.metric("Potential Profit", f"£{pnl_data['potential_profit']:.2f}", f"+{pnl_data['pips_to_target']:.1f} pips")
         with col3:
-            st.markdown(f"""
-            <div style="text-align: center; padding: 1.5rem; background: #fef2f2; border-radius: 12px; border: 2px solid #ef4444;">
-                <h4 style="color: #dc2626; font-size: 1.4rem; margin-bottom: 0.5rem;">Potential Loss</h4>
-                <p style="font-size: 2.2rem; font-weight: bold; color: #dc2626; margin: 0;">£{pnl_data['potential_loss']:.2f}</p>
-                <p style="font-size: 1.2rem; color: #dc2626; margin: 0;">-{pnl_data['pips_to_stop']:.1f} pips</p>
-            </div>
-            """, unsafe_allow_html=True)
+            st.metric("Potential Loss", f"£{pnl_data['potential_loss']:.2f}", f"-{pnl_data['pips_to_stop']:.1f} pips")
         with col4:
             net_expectation = (pnl_data['potential_profit'] * 0.6) - (pnl_data['potential_loss'] * 0.4)
-            expectation_color = "#047857" if net_expectation > 0 else "#dc2626"
-            expectation_bg = "#ecfdf5" if net_expectation > 0 else "#fef2f2"
-            st.markdown(f"""
-            <div style="text-align: center; padding: 1.5rem; background: {expectation_bg}; border-radius: 12px; border: 2px solid {expectation_color};">
-                <h4 style="color: {expectation_color}; font-size: 1.4rem; margin-bottom: 0.5rem;">Expected Value</h4>
-                <p style="font-size: 2.2rem; font-weight: bold; color: {expectation_color}; margin: 0;">£{net_expectation:.2f}</p>
-                <p style="font-size: 1.1rem; color: {expectation_color}; margin: 0;">60% win rate</p>
-            </div>
-            """, unsafe_allow_html=True)
+            st.metric("Expected Value", f"£{net_expectation:.2f}", "60% win rate")
         
-        # Enhanced trading buttons with market status
-        st.markdown("#### 🎯 Trading Actions")
+        # Leverage & Margin Information
+        st.markdown("### ⚡ Leverage & Margin")
+        
         col1, col2, col3, col4 = st.columns(4)
         
         with col1:
+            st.metric("Margin Required", f"£{pnl_data['margin_required']:.2f}", "Capital at risk")
+        with col2:
+            st.metric("Notional Value", f"£{pnl_data['notional_value']:.2f}", "Total position value")
+        with col3:
+            st.metric("Effective Leverage", f"{pnl_data['effective_leverage']:.1f}:1", "Amplification factor")
+        with col4:
+            margin_percentage = (pnl_data['margin_required'] / 1000) * 100  # Assuming $1000 account
+            st.metric("Margin Usage", f"{margin_percentage:.1f}%", "Of account balance")
+        
+        # Trading Actions
+        st.markdown("### 🎯 Trading Actions")
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            # DEBUG: Show which button logic is being used
+            # st.write(f"**DEBUG:** Market Open = {market_open}, Auto Execute = {auto_execute}")
+            
             if market_open:
                 if auto_execute:
                     if st.button(f"🤖 Auto-Execute NOW", key=f"auto_execute_{index}", help="Execute automatically with current settings"):
                         execute_trade_with_details(signal, display_position_size, pnl_data, auto=True)
                 else:
-                    if st.button(f"🚀 Execute Trade", key=f"execute_{index}", help="Execute this trade with current settings"):
+                    if st.button(f"🚀 Execute Trade", key=f"execute_{index}", help="Execute this trade immediately"):
                         execute_trade_with_details(signal, display_position_size, pnl_data)
             else:
                 if auto_execute:
                     st.button(f"🚫 Market Closed", key=f"disabled_{index}", disabled=True, help="Auto-execute disabled - market is closed")
                 else:
-                    if st.button(f"🚀 Execute Trade", key=f"execute_{index}", help="Execute this trade when market opens"):
-                        st.warning("⚠️ **Market is currently closed.** This trade will be queued for execution when the market reopens.")
-                        st.info(f"📋 Trade queued: {signal.signal_type} {signal.pair} at {signal.entry_price:.5f}")
-                        # Store for later execution when market opens
-                        if 'pending_signals' not in st.session_state:
-                            st.session_state.pending_signals = []
-                        st.session_state.pending_signals.append({
-                            'signal': signal,
-                            'position_size': display_position_size,
-                            'pnl_data': pnl_data,
-                            'timestamp': datetime.now()
-                        })
+                    # Check if this signal is already queued BEFORE showing the button
+                    already_queued = any(
+                        p['signal'].pair == signal.pair and 
+                        p['signal'].signal_type == signal.signal_type 
+                        for p in st.session_state.get('pending_signals', [])
+                    )
+                    
+                    if already_queued:
+                        st.button(f"✅ Already Queued", key=f"queued_{index}", disabled=True, help="This trade is already queued for execution")
+                        st.info(f"📋 **{signal.signal_type} {signal.pair}** is already queued for execution when market opens!")
+                    else:
+                        if st.button(f"📋 Queue for Execution", key=f"queue_{index}", help="Queue this trade for automatic execution when market opens"):
+                            # Store for later execution when market opens
+                            if 'pending_signals' not in st.session_state:
+                                st.session_state.pending_signals = []
+                            
+                            # Double-check if this signal is already queued (race condition protection)
+                            already_queued_check = any(
+                                p['signal'].pair == signal.pair and 
+                                p['signal'].signal_type == signal.signal_type 
+                                for p in st.session_state.pending_signals
+                            )
+                            
+                            if already_queued_check:
+                                st.warning(f"⚠️ **{signal.signal_type} {signal.pair}** is already queued for execution!")
+                            else:
+                                st.session_state.pending_signals.append({
+                                    'signal': signal,
+                                    'position_size': display_position_size,
+                                    'pnl_data': pnl_data,
+                                    'timestamp': datetime.now()
+                                })
+                                
+                                # Enhanced logging for pending trades
+                                logger.info(f"""
+🚀 TRADE QUEUED FOR EXECUTION 🚀
+
+Pair: {signal.pair}
+Action: {signal.signal_type}
+Entry: {signal.entry_price:.5f}
+Target: {signal.target_price:.5f}
+Stop Loss: {signal.stop_loss:.5f}
+Position Size: {display_position_size:,} units
+Confidence: {signal.confidence:.1%}
+Potential Profit: £{pnl_data['potential_profit']:.2f}
+Potential Loss: £{pnl_data['potential_loss']:.2f}
+Risk:Reward: 1:{pnl_data['risk_reward_ratio']:.1f}
+Queued at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+
+STATUS: PENDING - Will execute when market opens (Sunday 22:00 UTC)
+                                """)
+                                
+                                st.success(f"""
+                                ✅ **Trade Successfully Queued!**
+                                
+                                📋 **Trade Details:**
+                                • {signal.signal_type} {signal.pair} at {signal.entry_price:.5f}
+                                • Position Size: {display_position_size:,} units
+                                • Potential Profit: £{pnl_data['potential_profit']:.2f}
+                                • Queued at: {datetime.now().strftime('%H:%M:%S')}
+                                
+                                🚀 **This trade will automatically execute when the market reopens!**
+                                
+                                💡 You can view and manage all pending trades at the top of the page when the market is closed.
+                                """)
+                                
+                                # Log the queued trade
+                                log_detailed_trade(signal, "QUEUED", display_position_size, pnl_data, "PENDING")
+                                
+                                # Force a rerun to update the UI
+                                st.rerun()
         
         with col2:
             if st.button(f"📊 Detailed Analysis", key=f"analyze_{index}", help="View comprehensive analysis"):
@@ -708,79 +757,7 @@ def render_signal_card(signal, index, position_type, position_size, risk_percent
             if st.button(f"📋 Copy Signal", key=f"copy_{index}", help="Copy signal details"):
                 copy_signal_details(signal, pnl_data)
         
-        st.markdown("<hr style='margin: 3rem 0; border: 2px solid #e5e7eb;'>", unsafe_allow_html=True)
-
-def execute_trade_with_details(signal, position_size, pnl_data, auto=False):
-    """Execute a trade with detailed profit/loss information."""
-    if not MODULES_AVAILABLE:
-        st.error("Trading modules not available")
-        return
-    
-    try:
-        # Pre-trade confirmation
-        st.info(f"""
-        **Trade Confirmation:**
-        • {signal.signal_type} {signal.pair} at {signal.entry_price:.5f}
-        • Position Size: {position_size:,} units
-        • Potential Profit: ${pnl_data['potential_profit']:.2f} (+{pnl_data['pips_to_target']:.1f} pips)
-        • Potential Loss: ${pnl_data['potential_loss']:.2f} (-{pnl_data['pips_to_stop']:.1f} pips)
-        • Risk:Reward Ratio: 1:{pnl_data['risk_reward_ratio']:.1f}
-        """)
-        
-        # Get account summary for margin check
-        account_summary = trader.get_account_summary()
-        if not account_summary:
-            st.error("❌ Cannot get account information")
-            return
-        
-        # Calculate margin required
-        margin_required = trader.calculate_margin_required(signal.pair, position_size)
-        
-        st.info(f"""
-        **Margin Check:**
-        • Required Margin: ${margin_required:.2f}
-        • Available Margin: ${account_summary['margin_available']:.2f}
-        • After Trade: ${account_summary['margin_available'] - margin_required:.2f}
-        """)
-        
-        with st.spinner("Executing trade with full risk management..."):
-            # Create a modified signal with the specified position size
-            modified_signal = signal
-            order_id = trader.execute_signal(modified_signal)
-            
-            if order_id:
-                st.markdown(f"""
-                <div class="success-box">
-                    ✅ Trade executed successfully!<br>
-                    <strong>Order ID:</strong> {order_id}<br>
-                    <strong>Trade:</strong> {signal.signal_type} {signal.pair}<br>
-                    <strong>Entry:</strong> {signal.entry_price:.5f}<br>
-                    <strong>Target:</strong> {signal.target_price:.5f} (${pnl_data['potential_profit']:.2f} profit)<br>
-                    <strong>Stop Loss:</strong> {signal.stop_loss:.5f} (${pnl_data['potential_loss']:.2f} loss)<br>
-                    <strong>Position Size:</strong> {position_size:,} units<br>
-                    <strong>Margin Used:</strong> ${margin_required:.2f}
-                </div>
-                """, unsafe_allow_html=True)
-                
-                # Log the trade with detailed information
-                log_detailed_trade(signal, order_id, position_size, pnl_data, "EXECUTED")
-                
-                # Send enhanced notification
-                send_detailed_trade_notification(signal, order_id, position_size, pnl_data)
-                
-            else:
-                st.error(f"""
-                ❌ Failed to execute trade. Possible reasons:
-                • Insufficient margin (need ${margin_required:.2f}, have ${account_summary['margin_available']:.2f})
-                • Position size too large for account
-                • Market conditions (spread too wide)
-                • OANDA API restrictions
-                
-                Try reducing position size or check account status.
-                """)
-                
-    except Exception as e:
-        st.error(f"Error executing trade: {e}")
+        st.divider()  # Clean separator between signals
 
 def show_detailed_analysis(signal, pnl_data):
     """Show comprehensive signal analysis."""
@@ -802,6 +779,22 @@ def show_detailed_analysis(signal, pnl_data):
         st.write(f"• Risk:Reward: 1:{pnl_data['risk_reward_ratio']:.1f}")
         st.write(f"• Risk Level: {'Low' if pnl_data['risk_reward_ratio'] > 2 else 'Moderate' if pnl_data['risk_reward_ratio'] > 1.5 else 'High'}")
     
+    # Leverage & Margin Analysis
+    st.markdown("**Leverage & Margin Analysis:**")
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.write(f"• Margin Required: £{pnl_data['margin_required']:.2f}")
+        st.write(f"• Notional Value: £{pnl_data['notional_value']:.2f}")
+        st.write(f"• Effective Leverage: {pnl_data['effective_leverage']:.1f}:1")
+    
+    with col2:
+        margin_pct = (pnl_data['margin_required'] / 1000) * 100
+        leverage_risk = "High" if pnl_data['effective_leverage'] > 50 else "Moderate" if pnl_data['effective_leverage'] > 30 else "Low"
+        st.write(f"• Margin Usage: {margin_pct:.1f}% of account")
+        st.write(f"• Leverage Risk: {leverage_risk}")
+        st.write(f"• Capital Efficiency: {(pnl_data['notional_value'] / pnl_data['margin_required']):.1f}x")
+    
     # Profit scenarios
     st.markdown("**Profit Scenarios:**")
     scenarios = [
@@ -811,7 +804,20 @@ def show_detailed_analysis(signal, pnl_data):
     ]
     
     for scenario, profit in scenarios:
-        st.write(f"• {scenario}: ${profit:.2f}")
+        st.write(f"• {scenario}: £{profit:.2f}")
+    
+    # Leverage impact explanation
+    st.markdown("**💡 Leverage Impact:**")
+    st.info(f"""
+    **Understanding Your Leverage:**
+    
+    • **Position Value:** £{pnl_data['notional_value']:.2f} (total currency exposure)
+    • **Margin Required:** £{pnl_data['margin_required']:.2f} (your capital at risk)
+    • **Leverage:** {pnl_data['effective_leverage']:.1f}:1 (amplification factor)
+    
+    This means you control £{pnl_data['notional_value']:.2f} worth of currency with only £{pnl_data['margin_required']:.2f} of your capital. 
+    Both profits and losses are amplified by the leverage factor.
+    """)
 
 def copy_signal_details(signal, pnl_data):
     """Copy signal details to clipboard (simulated)."""
@@ -882,6 +888,123 @@ Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
     
     logger.info(notification)
     st.info("📱 Detailed trade notification sent!")
+
+def execute_trade_with_details(signal, position_size, pnl_data, auto=False):
+    """Execute a trade with detailed logging and notifications."""
+    try:
+        with st.spinner(f"Executing {signal.signal_type} {signal.pair}..."):
+            # Execute the trade using the trader
+            order_id = trader.execute_signal(signal, manual_override=not auto)
+            
+            if order_id:
+                # Log the successful trade
+                log_detailed_trade(signal, order_id, position_size, pnl_data, "EXECUTED")
+                
+                # Send notification
+                send_detailed_trade_notification(signal, order_id, position_size, pnl_data)
+                
+                # Show success message
+                execution_type = "🤖 AUTO-EXECUTED" if auto else "🚀 MANUALLY EXECUTED"
+                st.success(f"""
+                ✅ **Trade Successfully Executed!**
+                
+                📊 **Trade Details:**
+                • {execution_type}: {signal.signal_type} {signal.pair}
+                • Entry Price: {signal.entry_price:.5f}
+                • Position Size: {position_size:,} units
+                • Order ID: {order_id}
+                • Confidence: {signal.confidence:.1%}
+                
+                💰 **Profit/Loss Potential:**
+                • Max Profit: £{pnl_data['potential_profit']:.2f} (+{pnl_data['pips_to_target']:.1f} pips)
+                • Max Loss: £{pnl_data['potential_loss']:.2f} (-{pnl_data['pips_to_stop']:.1f} pips)
+                • Risk:Reward Ratio: 1:{pnl_data['risk_reward_ratio']:.1f}
+                
+                🎯 **Next Steps:**
+                • Monitor the trade in the "Open Trades" tab
+                • Set alerts for target and stop loss levels
+                • Consider position sizing for future trades
+                """)
+                
+                # Enhanced logging
+                logger.info(f"""
+🎯 TRADE EXECUTION SUCCESSFUL 🎯
+
+Execution Type: {execution_type}
+Pair: {signal.pair}
+Action: {signal.signal_type}
+Entry: {signal.entry_price:.5f}
+Target: {signal.target_price:.5f}
+Stop Loss: {signal.stop_loss:.5f}
+Position Size: {position_size:,} units
+Confidence: {signal.confidence:.1%}
+Order ID: {order_id}
+
+PROFIT/LOSS ANALYSIS:
+Potential Profit: £{pnl_data['potential_profit']:.2f} (+{pnl_data['pips_to_target']:.1f} pips)
+Potential Loss: £{pnl_data['potential_loss']:.2f} (-{pnl_data['pips_to_stop']:.1f} pips)
+Risk:Reward: 1:{pnl_data['risk_reward_ratio']:.1f}
+
+Executed at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+Manual Override: {not auto}
+                """)
+                
+                return order_id
+            else:
+                st.error(f"""
+                ❌ **Trade Execution Failed**
+                
+                • Pair: {signal.pair}
+                • Action: {signal.signal_type}
+                • Entry: {signal.entry_price:.5f}
+                
+                **Possible reasons:**
+                • Insufficient margin
+                • Market is closed
+                • Invalid price levels
+                • OANDA API error
+                
+                **Next steps:**
+                • Check account balance and margin
+                • Verify market hours
+                • Try again in a few moments
+                """)
+                
+                logger.error(f"""
+❌ TRADE EXECUTION FAILED ❌
+
+Pair: {signal.pair}
+Action: {signal.signal_type}
+Entry: {signal.entry_price:.5f}
+Position Size: {position_size:,} units
+Confidence: {signal.confidence:.1%}
+Manual Override: {not auto}
+Failed at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+                """)
+                
+                return None
+                
+    except Exception as e:
+        st.error(f"""
+        ❌ **Execution Error**
+        
+        An error occurred while executing the trade:
+        {str(e)}
+        
+        Please try again or contact support if the issue persists.
+        """)
+        
+        logger.error(f"""
+💥 TRADE EXECUTION ERROR 💥
+
+Pair: {signal.pair}
+Action: {signal.signal_type}
+Error: {str(e)}
+Manual Override: {not auto}
+Error at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+        """)
+        
+        return None
 
 def render_account_status():
     """Render enhanced OANDA account status with margin details."""
@@ -1100,7 +1223,7 @@ def render_backtest_results():
     with col2:
         confidence_levels = st.multiselect("Confidence Levels", 
                                          [0.15, 0.20, 0.25, 0.35, 0.45, 0.55, 0.65, 0.75], 
-                                         default=[0.20, 0.35, 0.50, 0.65], 
+                                         default=[0.20, 0.35, 0.55, 0.65], 
                                          key="confidence_levels",
                                          help="Lower confidence levels will show more trades")
     with col3:
@@ -1390,21 +1513,97 @@ def render_trade_log():
 
 def set_price_alert(signal):
     """Set a price alert for the signal."""
-    st.markdown("#### ⚠️ Price Alert Set")
-    st.success(f"Alert set for {signal.pair} at {signal.entry_price:.5f}")
+    st.markdown("#### ⚠️ Price Alert Configuration")
     
-    # In a real app, this would integrate with notification services
-    alert_data = {
-        'pair': signal.pair,
-        'price': signal.entry_price,
-        'type': 'ENTRY_ALERT',
-        'timestamp': datetime.now()
-    }
+    # Check if alert already exists for this pair
+    existing_alerts = st.session_state.get('alerts', [])
+    existing_alert = next((alert for alert in existing_alerts if alert['pair'] == signal.pair), None)
     
-    # Store alert (simplified)
-    if 'alerts' not in st.session_state:
-        st.session_state.alerts = []
-    st.session_state.alerts.append(alert_data)
+    if existing_alert:
+        st.warning(f"⚠️ Alert already exists for {signal.pair} at {existing_alert['price']:.5f}")
+        if st.button("🗑️ Remove Existing Alert", key=f"remove_alert_{signal.pair}"):
+            st.session_state.alerts = [alert for alert in existing_alerts if alert['pair'] != signal.pair]
+            st.success(f"✅ Removed alert for {signal.pair}")
+            st.rerun()
+        return
+    
+    # Alert configuration
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        alert_type = st.selectbox("Alert Type", [
+            "Entry Price Alert",
+            "Target Price Alert", 
+            "Stop Loss Alert",
+            "Custom Price Alert"
+        ], key=f"alert_type_{signal.pair}")
+    
+    with col2:
+        if alert_type == "Entry Price Alert":
+            alert_price = signal.entry_price
+        elif alert_type == "Target Price Alert":
+            alert_price = signal.target_price
+        elif alert_type == "Stop Loss Alert":
+            alert_price = signal.stop_loss
+        else:
+            alert_price = st.number_input("Custom Price", value=signal.entry_price, format="%.5f", key=f"custom_price_{signal.pair}")
+    
+    st.info(f"""
+    **Alert Configuration:**
+    • Pair: {signal.pair}
+    • Alert Price: {alert_price:.5f}
+    • Current Entry: {signal.entry_price:.5f}
+    • Type: {alert_type}
+    """)
+    
+    if st.button("🔔 Set Alert", key=f"set_alert_{signal.pair}"):
+        # Store alert
+        if 'alerts' not in st.session_state:
+            st.session_state.alerts = []
+        
+        alert_data = {
+            'pair': signal.pair,
+            'price': alert_price,
+            'type': alert_type,
+            'signal_type': signal.signal_type,
+            'confidence': signal.confidence,
+            'timestamp': datetime.now(),
+            'triggered': False
+        }
+        
+        st.session_state.alerts.append(alert_data)
+        
+        # Log the alert
+        logger.info(f"""
+🔔 PRICE ALERT SET 🔔
+
+Pair: {signal.pair}
+Alert Price: {alert_price:.5f}
+Alert Type: {alert_type}
+Signal: {signal.signal_type}
+Confidence: {signal.confidence:.1%}
+Set at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+        """)
+        
+        st.success(f"""
+        ✅ **Price Alert Set Successfully!**
+        
+        🔔 **Alert Details:**
+        • {signal.pair} at {alert_price:.5f}
+        • Type: {alert_type}
+        • Will notify when price reaches target
+        
+        💡 You can view all alerts in the Trade Log tab.
+        """)
+        
+        st.rerun()
+    
+    # Show existing alerts
+    if existing_alerts:
+        st.markdown("#### 📋 Your Active Alerts")
+        for i, alert in enumerate(existing_alerts):
+            status = "🔴 Triggered" if alert.get('triggered', False) else "🟢 Active"
+            st.write(f"• {alert['pair']} at {alert['price']:.5f} ({alert['type']}) - {status}")
 
 def render_open_trades():
     """Render open trades monitoring with manual close functionality."""
@@ -1804,47 +2003,159 @@ def render_market_status():
     """Render market status banner."""
     market_status = get_market_status()
     
-    # Create status banner
+    # Check for pending trades
+    pending_count = 0
+    if 'pending_signals' in st.session_state:
+        pending_count = len(st.session_state.pending_signals)
+    
+    # Create status banner using Streamlit components
     if market_status['is_open']:
-        st.markdown(f"""
-        <div style="
-            background: {market_status['bg_color']};
-            color: {market_status['color']};
-            padding: 1.5rem 2rem;
-            border-radius: 15px;
-            text-align: center;
-            margin-bottom: 2rem;
-            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
-        ">
-            <h3 style="margin: 0; font-size: 1.8rem; font-weight: 700;">
-                🟢 {market_status['message']} - {market_status['activity']}
-            </h3>
-            <p style="margin: 0.5rem 0 0 0; font-size: 1.2rem; opacity: 0.9;">
-                {market_status['detail']} • Active Sessions: {', '.join(market_status.get('sessions', ['None']))}
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
+        # Market is open
+        status_text = f"🟢 {market_status['message']} - {market_status['activity']}"
+        detail_text = f"{market_status['detail']} • Active Sessions: {', '.join(market_status.get('sessions', ['None']))}"
+        
+        if pending_count > 0:
+            detail_text += f" • {pending_count} pending trade{'s' if pending_count != 1 else ''} will execute shortly!"
+        
+        st.success(f"""
+        **{status_text}**
+        
+        {detail_text}
+        """)
     else:
-        st.markdown(f"""
-        <div style="
-            background: {market_status['bg_color']};
-            color: {market_status['color']};
-            padding: 1.5rem 2rem;
-            border-radius: 15px;
-            text-align: center;
-            margin-bottom: 2rem;
-            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
-        ">
-            <h3 style="margin: 0; font-size: 1.8rem; font-weight: 700;">
-                🔴 {market_status['message']}
-            </h3>
-            <p style="margin: 0.5rem 0 0 0; font-size: 1.2rem; opacity: 0.9;">
-                {market_status['detail']} • Next Open: {market_status['next_open']} ({market_status['time_until_open']})
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
+        # Market is closed
+        status_text = f"🔴 {market_status['message']}"
+        detail_text = f"{market_status['detail']} • Next Open: {market_status['next_open']} ({market_status['time_until_open']})"
+        
+        st.error(f"""
+        **{status_text}**
+        
+        {detail_text}
+        """)
+        
+        # Show pending trades notice if any
+        if pending_count > 0:
+            st.info(f"""
+            📋 **{pending_count} trade{'s' if pending_count != 1 else ''} queued for execution when market opens**
+            
+            These trades will automatically execute when the forex market reopens on Sunday at 22:00 UTC.
+            """)
     
     return market_status
+
+def check_and_execute_pending_trades(market_status):
+    """Check for pending trades and execute them when market opens."""
+    if not market_status or not market_status.get('is_open', False):
+        # Log pending trades when market is closed
+        if 'pending_signals' in st.session_state and st.session_state.pending_signals:
+            logger.info(f"""
+📋 PENDING TRADES STATUS (Market Closed) 📋
+
+Total pending trades: {len(st.session_state.pending_signals)}
+
+Pending trades waiting for execution:""")
+            for i, pending_trade in enumerate(st.session_state.pending_signals, 1):
+                signal = pending_trade['signal']
+                position_size = pending_trade['position_size']
+                pnl_data = pending_trade['pnl_data']
+                timestamp = pending_trade['timestamp']
+                time_diff = datetime.now() - timestamp
+                
+                logger.info(f"""
+{i}. {signal.signal_type} {signal.pair}
+   Entry: {signal.entry_price:.5f}
+   Target: {signal.target_price:.5f}
+   Stop: {signal.stop_loss:.5f}
+   Size: {position_size:,} units
+   Confidence: {signal.confidence:.1%}
+   Potential P&L: +£{pnl_data['potential_profit']:.2f} / -£{pnl_data['potential_loss']:.2f}
+   Queued: {timestamp.strftime('%H:%M:%S')} ({time_diff.total_seconds()/60:.0f} min ago)
+""")
+            logger.info("⏳ Waiting for market to open (Sunday 22:00 UTC) to execute these trades...")
+        return
+    
+    if 'pending_signals' not in st.session_state or not st.session_state.pending_signals:
+        return
+    
+    pending_trades = st.session_state.pending_signals.copy()
+    executed_count = 0
+    
+    logger.info(f"""
+🚀 MARKET OPENED - EXECUTING PENDING TRADES 🚀
+
+Found {len(pending_trades)} pending trades to execute...
+""")
+    
+    st.markdown("### 🚀 Executing Pending Trades")
+    
+    for i, pending_trade in enumerate(pending_trades):
+        signal = pending_trade['signal']
+        position_size = pending_trade['position_size']
+        pnl_data = pending_trade['pnl_data']
+        timestamp = pending_trade['timestamp']
+        
+        # Check if trade is still valid (not too old)
+        time_diff = datetime.now() - timestamp
+        if time_diff.total_seconds() > 3600:  # 1 hour old
+            logger.warning(f"⏰ Skipping old pending trade: {signal.signal_type} {signal.pair} (queued {time_diff.total_seconds()/60:.0f} minutes ago)")
+            st.warning(f"⏰ Skipping old pending trade: {signal.signal_type} {signal.pair} (queued {time_diff.total_seconds()/60:.0f} minutes ago)")
+            continue
+        
+        logger.info(f"🔄 Executing pending trade {i+1}/{len(pending_trades)}: {signal.signal_type} {signal.pair} at {signal.entry_price:.5f}")
+        st.info(f"🔄 Executing pending trade: {signal.signal_type} {signal.pair} at {signal.entry_price:.5f}")
+        
+        try:
+            # Execute the trade
+            execute_trade_with_details(signal, position_size, pnl_data, auto=True)
+            executed_count += 1
+            logger.info(f"✅ Successfully executed pending trade: {signal.signal_type} {signal.pair}")
+            
+        except Exception as e:
+            logger.error(f"❌ Failed to execute pending trade {signal.pair}: {e}")
+            st.error(f"❌ Failed to execute pending trade {signal.pair}: {e}")
+    
+    # Clear executed trades from pending list
+    if executed_count > 0:
+        st.session_state.pending_signals = []
+        st.success(f"✅ Successfully executed {executed_count} pending trades!")
+    
+    return executed_count
+
+def show_pending_trades():
+    """Display pending trades waiting for market to open."""
+    if 'pending_signals' not in st.session_state or not st.session_state.pending_signals:
+        return
+    
+    st.markdown("### ⏳ Pending Trades (Market Closed)")
+    
+    for i, pending_trade in enumerate(st.session_state.pending_signals):
+        signal = pending_trade['signal']
+        position_size = pending_trade['position_size']
+        pnl_data = pending_trade['pnl_data']
+        timestamp = pending_trade['timestamp']
+        
+        time_diff = datetime.now() - timestamp
+        
+        with st.expander(f"📋 {signal.signal_type} {signal.pair} - Queued {time_diff.total_seconds()/60:.0f} min ago"):
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                st.write(f"**Entry:** {signal.entry_price:.5f}")
+                st.write(f"**Target:** {signal.target_price:.5f}")
+                st.write(f"**Stop Loss:** {signal.stop_loss:.5f}")
+            
+            with col2:
+                st.write(f"**Position Size:** {position_size:,} units")
+                st.write(f"**Potential Profit:** £{pnl_data['potential_profit']:.2f}")
+                st.write(f"**Potential Loss:** £{pnl_data['potential_loss']:.2f}")
+            
+            with col3:
+                st.write(f"**Confidence:** {signal.confidence:.1%}")
+                st.write(f"**Queued:** {timestamp.strftime('%H:%M:%S')}")
+                
+                if st.button(f"❌ Cancel", key=f"cancel_pending_{i}"):
+                    st.session_state.pending_signals.pop(i)
+                    st.rerun()
 
 def main():
     """Main app function."""
@@ -1852,6 +2163,16 @@ def main():
     
     # Add market status banner
     market_status = render_market_status()
+    
+    # Check for pending trades when market opens
+    if market_status and market_status.get('is_open', False):
+        executed_count = check_and_execute_pending_trades(market_status)
+        if executed_count and executed_count > 0:
+            st.balloons()
+    
+    # Show pending trades if market is closed and there are pending trades
+    if market_status and not market_status.get('is_open', False):
+        show_pending_trades()
     
     # Create tabs
     tab1, tab2, tab3, tab4, tab5 = st.tabs([

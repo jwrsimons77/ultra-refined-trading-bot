@@ -49,7 +49,7 @@ class OANDATrader:
         # Risk management settings
         self.max_risk_per_trade = 0.02  # 2% of account per trade
         self.max_daily_risk = 0.06      # 6% of account per day
-        self.min_confidence = 0.35      # Temporarily lowered for testing
+        self.min_confidence = 0.25      # Lowered to 25% for testing
         
         logger.info(f"OANDA Trader initialized for {environment} environment")
 
@@ -130,14 +130,14 @@ class OANDATrader:
                     
                     # Calculate margin required
                     # For forex: Margin = (Units × Price) × Margin Rate
-                    # Typical margin rates: 2% for major pairs, 5% for minors
+                    # Typical margin rates for 30:1 leverage: ~3.33% for majors, ~5% for minors
                     margin_rates = {
-                        'EUR_USD': 0.02, 'GBP_USD': 0.02, 'USD_JPY': 0.02,
-                        'USD_CHF': 0.02, 'AUD_USD': 0.02, 'USD_CAD': 0.02,
-                        'NZD_USD': 0.05  # Higher margin for minor pairs
+                        'EUR_USD': 0.0333, 'GBP_USD': 0.0333, 'USD_JPY': 0.0333,
+                        'USD_CHF': 0.0333, 'AUD_USD': 0.0333, 'USD_CAD': 0.0333,
+                        'NZD_USD': 0.05  # Higher margin for minor pairs (20:1 leverage)
                     }
                     
-                    margin_rate = margin_rates.get(instrument, 0.05)  # Default 5%
+                    margin_rate = margin_rates.get(instrument, 0.05)  # Default 5% (20:1 leverage)
                     
                     # Fixed margin calculation logic
                     base_currency = instrument.split('_')[0]
@@ -257,10 +257,16 @@ class OANDATrader:
             logger.warning(f"Cannot find safe position size for {signal.pair}")
             return 0  # Cannot trade safely
 
-    def should_trade_signal(self, signal) -> bool:
+    def should_trade_signal(self, signal, manual_override=False) -> bool:
         """Enhanced signal validation with margin checks."""
-        # Check confidence threshold
-        if signal.confidence < self.min_confidence:
+        
+        if manual_override:
+            logger.info(f"🔓 MANUAL OVERRIDE ACTIVATED - Bypassing confidence checks")
+            logger.info(f"   Signal: {signal.pair} {signal.signal_type}")
+            logger.info(f"   Confidence: {signal.confidence:.1%} (normally requires {self.min_confidence:.1%})")
+        
+        # Check confidence threshold (skip if manual override)
+        if not manual_override and signal.confidence < self.min_confidence:
             logger.info(f"❌ Signal confidence {signal.confidence:.1%} below minimum {self.min_confidence:.1%}")
             return False
         
@@ -299,12 +305,15 @@ class OANDATrader:
             logger.info(f"❌ Margin utilization too high: {margin_utilization:.1%}")
             return False
         
-        logger.info(f"✅ Signal approved for trading: {signal.pair} {signal.signal_type}")
+        if manual_override:
+            logger.info(f"✅ Manual override signal approved: {signal.pair} {signal.signal_type}")
+        else:
+            logger.info(f"✅ Signal approved for trading: {signal.pair} {signal.signal_type}")
         return True
 
-    def execute_signal(self, signal) -> Optional[str]:
+    def execute_signal(self, signal, manual_override=False) -> Optional[str]:
         """Execute a trading signal with enhanced margin management."""
-        if not self.should_trade_signal(signal):
+        if not self.should_trade_signal(signal, manual_override=manual_override):
             return None
         
         # Get account summary

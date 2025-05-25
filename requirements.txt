@@ -36,5 +36,9 @@ black>=23.0.0
 flake8>=6.0.0
 
 # Additional Financial Libraries
-TA-Lib>=0.4.25  # Technical Analysis Library (optional)
+# Note: TA-Lib removed for Streamlit Cloud compatibility
+# Use pandas-ta or other alternatives for technical analysis
 ccxt>=4.0.0     # Cryptocurrency exchange library (optional)
+
+# Additional dependencies for enhanced UI
+altair>=5.0.0   # Alternative charting library
