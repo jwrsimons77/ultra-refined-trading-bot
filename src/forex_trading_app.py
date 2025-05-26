@@ -29,18 +29,28 @@ except ImportError as e:
 
 # Page config
 st.set_page_config(
-    page_title="Forex Trading Pro",
+    page_title="James's Trading Bot",
     page_icon="🚀",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
 
-# Professional CSS styling
+# Professional CSS styling with mobile-first optimizations and FIXED CONTRAST
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
     
-    /* Global Styles */
+    /* Mobile-First Global Styles */
+    html, body {
+        margin: 0;
+        padding: 0;
+        overflow-x: hidden;
+        -webkit-overflow-scrolling: touch;
+        -webkit-user-select: none;
+        -webkit-touch-callout: none;
+        -webkit-tap-highlight-color: transparent;
+    }
+    
     .main {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         min-height: 100vh;
@@ -57,199 +67,256 @@ st.markdown("""
     footer {visibility: hidden;}
     header {visibility: hidden;}
     .stDeployButton {visibility: hidden;}
+    .stDecoration {visibility: hidden;}
     
-    /* Header Styling */
+    /* Mobile Container Optimization */
+    .main .block-container {
+        padding: 0.5rem;
+        max-width: 100%;
+        margin: 0;
+    }
+    
+    /* Mobile-Optimized Header with BETTER CONTRAST */
     .trading-header {
-        background: linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.9) 100%);
+        background: linear-gradient(135deg, rgba(255,255,255,0.98) 0%, rgba(255,255,255,0.95) 100%);
         backdrop-filter: blur(20px);
-        border-radius: 25px;
-        padding: 3rem 2rem;
-        margin-bottom: 3rem;
-        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
+        border-radius: 20px;
+        padding: 2rem 1rem;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 15px 50px rgba(0, 0, 0, 0.15);
         text-align: center;
-        border: 1px solid rgba(255,255,255,0.2);
+        border: 2px solid rgba(255,255,255,0.4);
+        position: sticky;
+        top: 0.5rem;
+        z-index: 100;
     }
     
     .trading-title {
-        font-size: 3.5rem;
+        font-size: 2.5rem;
         font-weight: 800;
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
-        margin-bottom: 1rem;
+        margin-bottom: 0.5rem;
         letter-spacing: -0.02em;
     }
     
     .trading-subtitle {
-        font-size: 1.4rem;
-        color: #64748b;
-        font-weight: 500;
+        font-size: 1.1rem;
+        color: #374151;
+        font-weight: 600;
         margin: 0;
     }
     
-    /* Card Styling */
+    /* Mobile-First Card Styling with BETTER CONTRAST */
     .modern-card {
-        background: linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.9) 100%);
+        background: linear-gradient(135deg, rgba(255,255,255,0.98) 0%, rgba(255,255,255,0.95) 100%);
         backdrop-filter: blur(20px);
-        border-radius: 20px;
-        padding: 2rem;
-        margin: 2rem 0;
-        box-shadow: 0 20px 60px rgba(0,0,0,0.08);
-        border: 1px solid rgba(255,255,255,0.2);
+        border-radius: 15px;
+        padding: 1.5rem;
+        margin: 1rem 0;
+        box-shadow: 0 15px 40px rgba(0,0,0,0.12);
+        border: 2px solid rgba(255,255,255,0.4);
         transition: all 0.3s ease;
+        color: #1f2937;
     }
     
     .modern-card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 30px 80px rgba(0,0,0,0.12);
+        transform: translateY(-3px);
+        box-shadow: 0 20px 50px rgba(0,0,0,0.18);
     }
     
-    /* Signal Cards */
+    /* Mobile-Optimized Signal Cards with BETTER CONTRAST */
     .signal-card-buy {
-        background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
-        border-left: 6px solid #10b981;
-        border-radius: 20px;
-        padding: 2.5rem;
-        margin: 2rem 0;
-        box-shadow: 0 15px 50px rgba(16, 185, 129, 0.15);
+        background: linear-gradient(135deg, rgba(236, 253, 245, 0.98) 0%, rgba(209, 250, 229, 0.95) 100%);
+        border-left: 4px solid #10b981;
+        border-radius: 15px;
+        padding: 1.5rem;
+        margin: 1rem 0;
+        box-shadow: 0 10px 30px rgba(16, 185, 129, 0.2);
         transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+        color: #064e3b;
+        border: 2px solid rgba(16, 185, 129, 0.3);
     }
     
     .signal-card-sell {
-        background: linear-gradient(135deg, #fef2f2 0%, #fecaca 100%);
-        border-left: 6px solid #ef4444;
-        border-radius: 20px;
-        padding: 2.5rem;
-        margin: 2rem 0;
-        box-shadow: 0 15px 50px rgba(239, 68, 68, 0.15);
+        background: linear-gradient(135deg, rgba(254, 242, 242, 0.98) 0%, rgba(254, 202, 202, 0.95) 100%);
+        border-left: 4px solid #ef4444;
+        border-radius: 15px;
+        padding: 1.5rem;
+        margin: 1rem 0;
+        box-shadow: 0 10px 30px rgba(239, 68, 68, 0.2);
         transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+        color: #7f1d1d;
+        border: 2px solid rgba(239, 68, 68, 0.3);
     }
     
-    .signal-card-buy:hover, .signal-card-sell:hover {
-        transform: translateY(-3px);
-        box-shadow: 0 25px 70px rgba(0,0,0,0.15);
+    .signal-card-buy:active, .signal-card-sell:active {
+        transform: scale(0.98);
     }
     
-    /* Auto-execute badge */
+    /* Auto-execute badge - Mobile Optimized with BETTER CONTRAST */
     .auto-execute-badge {
         background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
         color: white;
-        padding: 0.8rem 1.5rem;
-        border-radius: 25px;
+        padding: 0.6rem 1.2rem;
+        border-radius: 20px;
         display: inline-block;
-        margin-bottom: 1.5rem;
+        margin-bottom: 1rem;
         font-weight: 700;
-        font-size: 1rem;
+        font-size: 0.9rem;
         letter-spacing: 0.05em;
-        box-shadow: 0 8px 25px rgba(245, 158, 11, 0.3);
+        box-shadow: 0 6px 20px rgba(245, 158, 11, 0.4);
         animation: pulse 2s infinite;
+        text-shadow: 0 1px 2px rgba(0,0,0,0.2);
     }
     
-    /* Metrics Cards */
+    /* Mobile-Optimized Metrics Cards with BETTER CONTRAST */
     .metric-card {
-        background: linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.8) 100%);
+        background: linear-gradient(135deg, rgba(255,255,255,0.98) 0%, rgba(255,255,255,0.95) 100%);
         backdrop-filter: blur(15px);
-        border-radius: 15px;
-        padding: 1.5rem;
+        border-radius: 12px;
+        padding: 1.2rem;
         text-align: center;
-        border: 1px solid rgba(255,255,255,0.3);
-        box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+        border: 2px solid rgba(255,255,255,0.4);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.1);
         transition: all 0.3s ease;
+        min-height: 100px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        color: #1f2937;
     }
     
-    .metric-card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 15px 40px rgba(0,0,0,0.1);
+    .metric-card:active {
+        transform: scale(0.95);
     }
     
     .metric-title {
-        font-size: 1.1rem;
-        font-weight: 600;
+        font-size: 0.9rem;
+        font-weight: 700;
         color: #374151;
         margin-bottom: 0.5rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
     }
     
     .metric-value {
-        font-size: 2rem;
+        font-size: 1.8rem;
         font-weight: 800;
         margin: 0;
+        line-height: 1;
+        color: #1f2937;
     }
     
     .metric-subtitle {
-        font-size: 0.9rem;
+        font-size: 0.8rem;
         color: #6b7280;
-        margin-top: 0.5rem;
+        margin-top: 0.3rem;
+        font-weight: 500;
     }
     
-    /* Profit/Loss Cards */
+    /* Mobile-Optimized P&L Cards with BETTER CONTRAST */
     .pnl-profit {
-        background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
-        border: 2px solid #10b981;
-        border-radius: 15px;
-        padding: 1.5rem;
+        background: linear-gradient(135deg, rgba(236, 253, 245, 0.98) 0%, rgba(209, 250, 229, 0.95) 100%);
+        border: 3px solid #10b981;
+        border-radius: 12px;
+        padding: 1.2rem;
         text-align: center;
-        box-shadow: 0 10px 30px rgba(16, 185, 129, 0.1);
+        box-shadow: 0 8px 25px rgba(16, 185, 129, 0.2);
+        min-height: 100px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        color: #064e3b;
     }
     
     .pnl-loss {
-        background: linear-gradient(135deg, #fef2f2 0%, #fecaca 100%);
-        border: 2px solid #ef4444;
-        border-radius: 15px;
-        padding: 1.5rem;
+        background: linear-gradient(135deg, rgba(254, 242, 242, 0.98) 0%, rgba(254, 202, 202, 0.95) 100%);
+        border: 3px solid #ef4444;
+        border-radius: 12px;
+        padding: 1.2rem;
         text-align: center;
-        box-shadow: 0 10px 30px rgba(239, 68, 68, 0.1);
+        box-shadow: 0 8px 25px rgba(239, 68, 68, 0.2);
+        min-height: 100px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        color: #7f1d1d;
     }
     
     .pnl-neutral {
-        background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
-        border: 2px solid #64748b;
-        border-radius: 15px;
-        padding: 1.5rem;
+        background: linear-gradient(135deg, rgba(248, 250, 252, 0.98) 0%, rgba(226, 232, 240, 0.95) 100%);
+        border: 3px solid #64748b;
+        border-radius: 12px;
+        padding: 1.2rem;
         text-align: center;
-        box-shadow: 0 10px 30px rgba(100, 116, 139, 0.1);
+        box-shadow: 0 8px 25px rgba(100, 116, 139, 0.2);
+        min-height: 100px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        color: #334155;
     }
     
-    /* Button Styling */
+    /* Mobile-Optimized Button Styling with BETTER CONTRAST */
     .stButton > button {
         background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
         color: white;
         border: none;
         border-radius: 12px;
-        padding: 0.8rem 1.8rem;
-        font-weight: 600;
+        padding: 1rem 1.5rem;
+        font-weight: 700;
         font-size: 1rem;
         transition: all 0.3s ease;
-        box-shadow: 0 8px 25px rgba(59, 130, 246, 0.3);
+        box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
         letter-spacing: 0.025em;
+        min-height: 50px;
+        width: 100%;
+        -webkit-tap-highlight-color: transparent;
+        touch-action: manipulation;
+        text-shadow: 0 1px 2px rgba(0,0,0,0.2);
     }
     
     .stButton > button:hover {
         transform: translateY(-2px);
-        box-shadow: 0 12px 35px rgba(59, 130, 246, 0.4);
+        box-shadow: 0 8px 25px rgba(59, 130, 246, 0.5);
         background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
     }
     
-    /* Market Status */
+    .stButton > button:active {
+        transform: scale(0.95);
+    }
+    
+    /* Mobile Market Status with BETTER CONTRAST */
     .market-open {
         background: linear-gradient(135deg, #10b981 0%, #059669 100%);
         color: white;
-        padding: 1rem 2rem;
-        border-radius: 15px;
+        padding: 1rem;
+        border-radius: 12px;
         text-align: center;
         font-weight: 700;
-        font-size: 1.1rem;
-        box-shadow: 0 8px 25px rgba(16, 185, 129, 0.3);
+        font-size: 1rem;
+        box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
+        margin-bottom: 1rem;
+        text-shadow: 0 1px 2px rgba(0,0,0,0.2);
     }
     
     .market-closed {
         background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
         color: white;
-        padding: 1rem 2rem;
-        border-radius: 15px;
+        padding: 1rem;
+        border-radius: 12px;
         text-align: center;
         font-weight: 700;
-        font-size: 1.1rem;
-        box-shadow: 0 8px 25px rgba(239, 68, 68, 0.3);
+        font-size: 1rem;
+        box-shadow: 0 6px 20px rgba(239, 68, 68, 0.4);
+        margin-bottom: 1rem;
+        text-shadow: 0 1px 2px rgba(0,0,0,0.2);
     }
     
     /* Animations */
@@ -259,83 +326,250 @@ st.markdown("""
     }
     
     @keyframes slideIn {
-        from { opacity: 0; transform: translateY(30px); }
+        from { opacity: 0; transform: translateY(20px); }
         to { opacity: 1; transform: translateY(0); }
     }
     
     .slide-in {
-        animation: slideIn 0.6s ease-out;
+        animation: slideIn 0.4s ease-out;
     }
     
-    /* Responsive Design */
+    /* Mobile-First Responsive Design */
     @media (max-width: 768px) {
+        .main .block-container {
+            padding: 0.25rem;
+        }
+        
+        .trading-header {
+            padding: 1.5rem 1rem;
+            margin-bottom: 1rem;
+            border-radius: 15px;
+        }
+        
         .trading-title {
-            font-size: 2.5rem;
+            font-size: 2rem;
+        }
+        
+        .trading-subtitle {
+            font-size: 1rem;
         }
         
         .signal-card-buy, .signal-card-sell {
-            padding: 1.5rem;
-            margin: 1rem 0;
+            padding: 1.2rem;
+            margin: 0.8rem 0;
+            border-radius: 12px;
         }
         
         .modern-card {
-            padding: 1.5rem;
-            margin: 1rem 0;
+            padding: 1.2rem;
+            margin: 0.8rem 0;
+            border-radius: 12px;
+        }
+        
+        .metric-card, .pnl-profit, .pnl-loss, .pnl-neutral {
+            padding: 1rem;
+            min-height: 80px;
+        }
+        
+        .metric-value {
+            font-size: 1.5rem;
+        }
+        
+        .metric-title {
+            font-size: 0.8rem;
         }
     }
     
-    /* Tab Styling */
+    @media (max-width: 480px) {
+        .main .block-container {
+            padding: 0.1rem;
+        }
+        
+        .trading-header {
+            padding: 1rem 0.8rem;
+            margin-bottom: 0.8rem;
+        }
+        
+        .trading-title {
+            font-size: 1.8rem;
+        }
+        
+        .trading-subtitle {
+            font-size: 0.9rem;
+        }
+        
+        .signal-card-buy, .signal-card-sell, .modern-card {
+            padding: 1rem;
+            margin: 0.5rem 0;
+            border-radius: 10px;
+        }
+        
+        .metric-card, .pnl-profit, .pnl-loss, .pnl-neutral {
+            padding: 0.8rem;
+            min-height: 70px;
+        }
+        
+        .metric-value {
+            font-size: 1.3rem;
+        }
+        
+        .metric-title {
+            font-size: 0.75rem;
+        }
+        
+        .stButton > button {
+            padding: 0.8rem 1rem;
+            font-size: 0.9rem;
+            min-height: 45px;
+        }
+    }
+    
+    /* Mobile Tab Styling with BETTER CONTRAST */
     .stTabs [data-baseweb="tab-list"] {
-        gap: 8px;
-        background: rgba(255,255,255,0.1);
-        border-radius: 15px;
-        padding: 0.5rem;
+        gap: 4px;
+        background: rgba(255,255,255,0.2);
+        border-radius: 12px;
+        padding: 0.3rem;
+        margin-bottom: 1rem;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        border: 2px solid rgba(255,255,255,0.3);
     }
     
     .stTabs [data-baseweb="tab"] {
         background: transparent;
-        border-radius: 10px;
-        color: rgba(255,255,255,0.7);
-        font-weight: 600;
-        padding: 0.8rem 1.5rem;
+        border-radius: 8px;
+        color: rgba(255,255,255,0.9);
+        font-weight: 700;
+        padding: 0.8rem 1rem;
         transition: all 0.3s ease;
+        white-space: nowrap;
+        min-width: fit-content;
+        -webkit-tap-highlight-color: transparent;
+        touch-action: manipulation;
+        text-shadow: 0 1px 2px rgba(0,0,0,0.3);
     }
     
     .stTabs [aria-selected="true"] {
-        background: rgba(255,255,255,0.2);
+        background: rgba(255,255,255,0.3);
         color: white;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        text-shadow: 0 1px 2px rgba(0,0,0,0.4);
     }
     
-    /* Trade Status Indicators */
+    /* Mobile Trade Status Indicators with BETTER CONTRAST */
+    .trade-open, .trade-profit, .trade-loss {
+        padding: 0.4rem 0.8rem;
+        border-radius: 15px;
+        font-size: 0.8rem;
+        font-weight: 700;
+        display: inline-block;
+        margin: 0.2rem;
+        text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+    }
+    
     .trade-open {
         background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
         color: white;
-        padding: 0.5rem 1rem;
-        border-radius: 20px;
-        font-size: 0.9rem;
-        font-weight: 600;
-        display: inline-block;
     }
     
     .trade-profit {
         background: linear-gradient(135deg, #10b981 0%, #059669 100%);
         color: white;
-        padding: 0.5rem 1rem;
-        border-radius: 20px;
-        font-size: 0.9rem;
-        font-weight: 600;
-        display: inline-block;
     }
     
     .trade-loss {
         background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
         color: white;
-        padding: 0.5rem 1rem;
-        border-radius: 20px;
-        font-size: 0.9rem;
-        font-weight: 600;
-        display: inline-block;
+    }
+    
+    /* Mobile Input Optimizations with BETTER CONTRAST */
+    .stSelectbox > div > div {
+        border-radius: 10px;
+        border: 2px solid rgba(255,255,255,0.4);
+        background: rgba(255,255,255,0.95);
+        min-height: 50px;
+        color: #1f2937;
+    }
+    
+    .stSlider > div > div {
+        background: rgba(255,255,255,0.95);
+        border-radius: 10px;
+        padding: 1rem;
+        border: 2px solid rgba(255,255,255,0.4);
+    }
+    
+    .stNumberInput > div > div > input {
+        border-radius: 10px;
+        border: 2px solid rgba(255,255,255,0.4);
+        background: rgba(255,255,255,0.95);
+        min-height: 50px;
+        font-size: 1rem;
+        color: #1f2937;
+    }
+    
+    /* Mobile Expander Styling with BETTER CONTRAST */
+    .streamlit-expanderHeader {
+        background: rgba(255,255,255,0.2);
+        border-radius: 10px;
+        padding: 1rem;
+        font-weight: 700;
+        border: 2px solid rgba(255,255,255,0.3);
+        color: white;
+        text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+    }
+    
+    /* Touch Optimizations */
+    * {
+        -webkit-tap-highlight-color: transparent;
+        -webkit-touch-callout: none;
+    }
+    
+    button, .stButton > button, [role="button"] {
+        touch-action: manipulation;
+        -webkit-user-select: none;
+        user-select: none;
+    }
+    
+    /* PWA Support */
+    @media (display-mode: standalone) {
+        .trading-header {
+            padding-top: 2rem; /* Account for status bar */
+        }
+    }
+    
+    /* Streamlit specific text contrast fixes */
+    .stMarkdown, .stText, p, div, span {
+        color: #1f2937 !important;
+    }
+    
+    .stMarkdown h1, .stMarkdown h2, .stMarkdown h3, .stMarkdown h4 {
+        color: #1f2937 !important;
+    }
+    
+    /* Success/Error/Warning message contrast */
+    .stSuccess {
+        background: rgba(236, 253, 245, 0.95) !important;
+        color: #064e3b !important;
+        border: 2px solid #10b981 !important;
+    }
+    
+    .stError {
+        background: rgba(254, 242, 242, 0.95) !important;
+        color: #7f1d1d !important;
+        border: 2px solid #ef4444 !important;
+    }
+    
+    .stWarning {
+        background: rgba(255, 251, 235, 0.95) !important;
+        color: #92400e !important;
+        border: 2px solid #f59e0b !important;
+    }
+    
+    .stInfo {
+        background: rgba(239, 246, 255, 0.95) !important;
+        color: #1e3a8a !important;
+        border: 2px solid #3b82f6 !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -354,21 +588,44 @@ def render_header():
     """Render the main header."""
     st.markdown("""
     <div class="trading-header">
-        <div class="trading-title">🚀 Forex Trading Pro</div>
-        <div style="font-size: 1.2rem; color: #6b7280;">
+        <div class="trading-title">🚀 James's Trading Bot</div>
+        <div style="font-size: 1.2rem; color: #374151; font-weight: 600;">
             Automated Trading with OANDA • Risk Management • Live Alerts
         </div>
     </div>
     """, unsafe_allow_html=True)
 
-@st.cache_data(ttl=300)  # Cache for 5 minutes
-def get_live_signals(min_confidence=0.25):
-    """Get live forex signals."""
+@st.cache_data(ttl=30)  # Cache account data for 30 seconds
+def get_account_data():
+    """Get account data only - no signal generation."""
+    if not MODULES_AVAILABLE:
+        return None, []
+    
+    try:
+        account_summary = trader.get_account_summary()
+        positions = trader.get_open_positions()
+        return account_summary, positions
+    except Exception as e:
+        st.error(f"Error getting account data: {e}")
+        return None, []
+
+@st.cache_data(ttl=300)  # Cache signals for 5 minutes - only refresh when explicitly requested
+def get_live_signals(min_confidence=0.25, force_refresh=False):
+    """Get live forex signals - only fetch news when explicitly requested."""
     if not MODULES_AVAILABLE:
         return []
     
     try:
-        signals = signal_generator.generate_forex_signals(
+        # Force refresh of signal generator to use latest code
+        import importlib
+        import sys
+        if 'forex_signal_generator' in sys.modules:
+            importlib.reload(sys.modules['forex_signal_generator'])
+        
+        from forex_signal_generator import ForexSignalGenerator
+        fresh_signal_generator = ForexSignalGenerator()
+        
+        signals = fresh_signal_generator.generate_forex_signals(
             max_signals=8,
             min_confidence=min_confidence
         )
@@ -379,21 +636,19 @@ def get_live_signals(min_confidence=0.25):
 
 def calculate_trade_pnl(signal, position_size=1000):
     """Calculate potential profit and loss for a trade with proper leverage accounting."""
-    # Calculate pip values
+    # Calculate pip values correctly
     if 'JPY' in signal.pair:
         pip_value = 0.01
-        pip_multiplier = 100
     else:
         pip_value = 0.0001
-        pip_multiplier = 10000
     
-    # Calculate pips to target and stop loss
+    # Calculate pips to target and stop loss - FIXED CALCULATION
     if signal.signal_type == "BUY":
-        pips_to_target = (signal.target_price - signal.entry_price) * pip_multiplier
-        pips_to_stop = (signal.entry_price - signal.stop_loss) * pip_multiplier
+        pips_to_target = (signal.target_price - signal.entry_price) / pip_value
+        pips_to_stop = (signal.entry_price - signal.stop_loss) / pip_value
     else:  # SELL
-        pips_to_target = (signal.entry_price - signal.target_price) * pip_multiplier
-        pips_to_stop = (signal.stop_loss - signal.entry_price) * pip_multiplier
+        pips_to_target = (signal.entry_price - signal.target_price) / pip_value
+        pips_to_stop = (signal.stop_loss - signal.entry_price) / pip_value
     
     # Calculate proper pip values based on position size and currency pair
     # Standard forex pip values for different position sizes:
@@ -503,12 +758,34 @@ def render_live_signals(market_status):
         auto_trade_enabled = st.checkbox("Auto-Trade High Confidence (≥75%)", key="auto_trade", 
                                        help="Automatically execute trades with 75%+ confidence when market is open")
         
+        # Add cache clear button for testing
+        if st.button("🔄 Refresh Signals", key="refresh_signals", help="Clear cache and get fresh signals"):
+            # Clear only signal cache, not account cache
+            get_live_signals.clear()
+            st.rerun()
+        
+        # Add test button for demonstration
+        if st.button("🧪 Test Mode (Low Threshold)", key="test_signals", help="Generate signals with 15% minimum confidence for testing"):
+            # Clear only signal cache for testing
+            get_live_signals.clear()
+            # Force low confidence signals for testing
+            test_signals = get_live_signals(min_confidence=0.15, force_refresh=True)
+            if test_signals:
+                st.success(f"🧪 **Test Mode:** Found {len(test_signals)} signals with 15% minimum confidence!")
+                st.info("💡 This demonstrates signal generation functionality. In live trading, use higher confidence levels (50%+)")
+            else:
+                st.warning("🧪 **Test Mode:** No signals found even at 15% confidence. Market conditions may be neutral.")
+        
         # Show market status in settings
         if market_status:
-            if market_status['is_open']:
+            if market_status['is_open'] and auto_trade_enabled:
                 st.success("🟢 Auto-trading active")
+            elif market_status['is_open'] and not auto_trade_enabled:
+                st.info("🔵 Auto-trading disabled (market open)")
+            elif not market_status['is_open'] and auto_trade_enabled:
+                st.warning("🟡 Auto-trading enabled (market closed)")
             else:
-                st.warning("🔴 Auto-trading paused")
+                st.error("🔴 Auto-trading disabled (market closed)")
     
     signals = get_live_signals(min_confidence)
     
@@ -558,11 +835,11 @@ def render_signal_card(signal, index, position_type, position_size, risk_percent
     """Render individual signal card with enhanced styling."""
     # Calculate position size based on selection
     if position_type == "Risk-Based (% of account)":
-        # Estimate stop loss pips for risk calculation
+        # Estimate stop loss pips for risk calculation - FIXED CALCULATION
         if 'JPY' in signal.pair:
-            stop_pips = abs(signal.entry_price - signal.stop_loss) * 100
+            stop_pips = abs(signal.entry_price - signal.stop_loss) / 0.01
         else:
-            stop_pips = abs(signal.entry_price - signal.stop_loss) * 10000
+            stop_pips = abs(signal.entry_price - signal.stop_loss) / 0.0001
         
         calculated_position_size = calculate_position_size_from_risk(1000, risk_percentage, stop_pips)
         display_position_size = calculated_position_size
@@ -900,6 +1177,21 @@ def execute_trade_with_details(signal, position_size, pnl_data, auto=False):
                 # Log the successful trade
                 log_detailed_trade(signal, order_id, position_size, pnl_data, "EXECUTED")
                 
+                # Store position-to-signal mapping for enhanced display
+                if 'position_signal_mapping' not in st.session_state:
+                    st.session_state.position_signal_mapping = {}
+                
+                # Create a unique key for this position
+                position_key = f"{signal.pair}_{signal.signal_type}_{signal.entry_price:.5f}"
+                st.session_state.position_signal_mapping[position_key] = {
+                    'signal': signal,
+                    'position_size': position_size,
+                    'pnl_data': pnl_data,
+                    'order_id': order_id,
+                    'execution_time': datetime.now(),
+                    'execution_type': "🤖 AUTO-EXECUTED" if auto else "🚀 MANUALLY EXECUTED"
+                }
+                
                 # Send notification
                 send_detailed_trade_notification(signal, order_id, position_size, pnl_data)
                 
@@ -1007,152 +1299,252 @@ Error at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
         return None
 
 def render_account_status():
-    """Render enhanced OANDA account status with margin details."""
+    """Render enhanced OANDA account status with real-time updates and color-coded P&L."""
     st.markdown("### 💰 Account Status & Margin Management")
     
     if not MODULES_AVAILABLE:
         st.error("Account modules not available")
         return
     
+    # Auto-refresh every 10 seconds
+    if st.button("🔄 Refresh Account", key="refresh_account"):
+        st.cache_data.clear()  # Clear cache to force refresh
+        st.rerun()
+    
+    # Add auto-refresh info
+    st.info("💡 **Live Account Data** - Account information updates automatically. Click refresh for latest data.")
+    
     try:
-        # Get comprehensive account summary
-        account_summary = trader.get_account_summary()
-        positions = trader.get_open_positions()
+        # Get comprehensive account summary using optimized cached function
+        account_summary, positions = get_account_data()
         
         if not account_summary:
             st.error("❌ Unable to get account information")
             return
         
-        # Main account metrics
+        # Main account metrics with enhanced styling
         col1, col2, col3, col4 = st.columns(4)
         
         with col1:
-            st.metric("Account Balance", f"${account_summary['balance']:.2f}")
+            st.markdown(f"""
+            <div class="metric-card">
+                <div class="metric-title">Account Balance</div>
+                <div class="metric-value" style="color: #3b82f6;">${account_summary['balance']:.2f}</div>
+                <div class="metric-subtitle">Base balance</div>
+            </div>
+            """, unsafe_allow_html=True)
+        
         with col2:
-            st.metric("NAV", f"${account_summary['nav']:.2f}")
+            st.markdown(f"""
+            <div class="metric-card">
+                <div class="metric-title">Net Asset Value</div>
+                <div class="metric-value" style="color: #10b981;">${account_summary['nav']:.2f}</div>
+                <div class="metric-subtitle">Including P&L</div>
+            </div>
+            """, unsafe_allow_html=True)
+        
         with col3:
             unrealized_pl = account_summary['unrealized_pl']
-            pl_color = "normal" if unrealized_pl >= 0 else "inverse"
-            st.metric("Unrealized P&L", f"${unrealized_pl:.2f}", delta=None)
-        with col4:
-            st.metric("Open Trades", account_summary['open_trade_count'])
+            pl_color = "#10b981" if unrealized_pl >= 0 else "#ef4444"
+            pl_sign = "+" if unrealized_pl >= 0 else ""
+            pl_emoji = "📈" if unrealized_pl >= 0 else "📉"
+            
+            st.markdown(f"""
+            <div class="metric-card">
+                <div class="metric-title">Unrealized P&L {pl_emoji}</div>
+                <div class="metric-value" style="color: {pl_color};">{pl_sign}${unrealized_pl:.2f}</div>
+                <div class="metric-subtitle">Live positions</div>
+            </div>
+            """, unsafe_allow_html=True)
         
-        # Margin information
+        with col4:
+            trade_count = account_summary['open_trade_count']
+            trade_color = "#f59e0b" if trade_count > 0 else "#6b7280"
+            
+            st.markdown(f"""
+            <div class="metric-card">
+                <div class="metric-title">Open Trades</div>
+                <div class="metric-value" style="color: {trade_color};">{trade_count}</div>
+                <div class="metric-subtitle">Active positions</div>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        # Enhanced P&L Display
+        if unrealized_pl != 0:
+            if unrealized_pl > 0:
+                st.success(f"🎉 **Profitable Positions!** You're up ${unrealized_pl:.2f} on open trades")
+            else:
+                st.error(f"⚠️ **Positions in Loss** You're down ${abs(unrealized_pl):.2f} on open trades")
+        
+        # Margin information with enhanced visuals
         st.markdown("#### 🛡️ Margin Management")
         
         col1, col2, col3, col4 = st.columns(4)
         
         with col1:
-            st.metric("Margin Used", f"${account_summary['margin_used']:.2f}")
+            margin_used = account_summary['margin_used']
+            st.markdown(f"""
+            <div class="metric-card">
+                <div class="metric-title">Margin Used</div>
+                <div class="metric-value" style="color: #f59e0b;">${margin_used:.2f}</div>
+                <div class="metric-subtitle">Capital locked</div>
+            </div>
+            """, unsafe_allow_html=True)
+        
         with col2:
-            st.metric("Margin Available", f"${account_summary['margin_available']:.2f}")
+            margin_available = account_summary['margin_available']
+            st.markdown(f"""
+            <div class="metric-card">
+                <div class="metric-title">Margin Available</div>
+                <div class="metric-value" style="color: #10b981;">${margin_available:.2f}</div>
+                <div class="metric-subtitle">Free to trade</div>
+            </div>
+            """, unsafe_allow_html=True)
+        
         with col3:
             # Calculate margin utilization percentage
-            margin_utilization = (account_summary['margin_used'] / account_summary['balance']) * 100 if account_summary['balance'] > 0 else 0
-            utilization_color = "normal" if margin_utilization < 50 else ("inverse" if margin_utilization > 80 else "off")
-            st.metric("Margin Utilization", f"{margin_utilization:.1f}%")
+            margin_utilization = (margin_used / account_summary['balance']) * 100 if account_summary['balance'] > 0 else 0
+            utilization_color = "#10b981" if margin_utilization < 30 else "#f59e0b" if margin_utilization < 60 else "#ef4444"
+            
+            st.markdown(f"""
+            <div class="metric-card">
+                <div class="metric-title">Margin Utilization</div>
+                <div class="metric-value" style="color: {utilization_color};">{margin_utilization:.1f}%</div>
+                <div class="metric-subtitle">Of balance used</div>
+            </div>
+            """, unsafe_allow_html=True)
+        
         with col4:
             # Safety buffer
             safety_buffer = max(50, account_summary['balance'] * 0.05)
-            st.metric("Safety Buffer", f"${safety_buffer:.2f}")
+            effective_available = margin_available - safety_buffer
+            
+            st.markdown(f"""
+            <div class="metric-card">
+                <div class="metric-title">Effective Available</div>
+                <div class="metric-value" style="color: #6366f1;">${effective_available:.2f}</div>
+                <div class="metric-subtitle">After safety buffer</div>
+            </div>
+            """, unsafe_allow_html=True)
         
-        # Margin utilization progress bar
-        st.markdown("**Margin Utilization:**")
+        # Enhanced margin utilization progress bar
+        st.markdown("**Margin Utilization Status:**")
         utilization_pct = min(margin_utilization / 100, 1.0)
         
         # Color coding for margin utilization
         if margin_utilization < 30:
             bar_color = "#059669"  # Green - Safe
-            status_text = "🟢 Safe"
+            status_text = "🟢 **SAFE** - Low margin usage"
+            status_detail = "You have plenty of margin available for new trades"
         elif margin_utilization < 60:
             bar_color = "#f59e0b"  # Yellow - Moderate
-            status_text = "🟡 Moderate"
+            status_text = "🟡 **MODERATE** - Watch margin levels"
+            status_detail = "Consider position sizes carefully for new trades"
         elif margin_utilization < 80:
             bar_color = "#f97316"  # Orange - High
-            status_text = "🟠 High"
+            status_text = "🟠 **HIGH** - Margin usage elevated"
+            status_detail = "Limited capacity for additional positions"
         else:
             bar_color = "#dc2626"  # Red - Critical
-            status_text = "🔴 Critical"
+            status_text = "🔴 **CRITICAL** - Very high margin usage"
+            status_detail = "Consider closing some positions to reduce risk"
         
         st.progress(utilization_pct)
-        st.markdown(f"**Status:** {status_text} ({margin_utilization:.1f}% of balance used as margin)")
+        st.markdown(f"**{status_text}** ({margin_utilization:.1f}% of balance)")
+        st.caption(status_detail)
         
-        # Trading capacity
-        st.markdown("#### 📊 Trading Capacity")
-        
-        # Calculate how much more we can trade
-        effective_margin_available = account_summary['margin_available'] - safety_buffer
-        
-        col1, col2 = st.columns(2)
-        with col1:
-            st.metric("Effective Available", f"${effective_margin_available:.2f}")
-            st.caption("Available margin after safety buffer")
-        with col2:
-            # Estimate number of additional trades possible
-            avg_margin_per_trade = 20  # Rough estimate for 1000 units
-            estimated_trades = int(effective_margin_available / avg_margin_per_trade) if avg_margin_per_trade > 0 else 0
-            st.metric("Est. Additional Trades", f"{estimated_trades}")
-            st.caption("Approximate based on 1000 units")
-        
-        # Show open positions with margin details
+        # Show open positions with enhanced real-time P&L
         if positions:
-            st.markdown("#### 📈 Open Positions")
+            st.markdown("#### 📈 Live Open Positions")
             
             position_data = []
+            total_unrealized = 0
+            
             for pos in positions:
                 instrument = pos['instrument'].replace('_', '/')
                 long_units = float(pos['long']['units'])
                 short_units = float(pos['short']['units'])
                 
                 if long_units > 0:
-                    direction = "LONG"
+                    direction = "🟢 LONG"
                     units = long_units
                     unrealized = float(pos['long'].get('unrealizedPL', 0))
+                    avg_price = float(pos['long'].get('averagePrice', 0))
                 elif short_units < 0:
-                    direction = "SHORT"
+                    direction = "🔴 SHORT"
                     units = abs(short_units)
                     unrealized = float(pos['short'].get('unrealizedPL', 0))
+                    avg_price = float(pos['short'].get('averagePrice', 0))
                 else:
                     continue
                 
+                total_unrealized += unrealized
+                
+                # Color code P&L
+                pl_color = "🟢" if unrealized >= 0 else "🔴"
+                pl_sign = "+" if unrealized >= 0 else ""
+                
                 # Estimate margin used for this position
-                estimated_margin = trader.calculate_margin_required(instrument, int(units))
+                estimated_margin = trader.calculate_margin_required(instrument.replace('/', '_'), int(units))
                 
                 position_data.append({
                     'Pair': instrument,
                     'Direction': direction,
                     'Units': f"{units:,.0f}",
-                    'Unrealized P&L': f"${unrealized:.2f}",
+                    'Avg Price': f"{avg_price:.5f}",
+                    'Unrealized P&L': f"{pl_color} {pl_sign}${unrealized:.2f}",
                     'Est. Margin': f"${estimated_margin:.2f}"
                 })
             
             if position_data:
+                # Create a more visually appealing table
                 df_positions = pd.DataFrame(position_data)
                 st.dataframe(df_positions, use_container_width=True)
-            
-            # Position summary
-            total_unrealized = sum([float(pos.get('long', {}).get('unrealizedPL', 0)) + 
-                                  float(pos.get('short', {}).get('unrealizedPL', 0)) for pos in positions])
-            
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                st.metric("Total Positions", len(positions))
-            with col2:
-                st.metric("Total Unrealized P&L", f"${total_unrealized:.2f}")
-            with col3:
-                roi = (total_unrealized / account_summary['balance']) * 100 if account_summary['balance'] > 0 else 0
-                st.metric("ROI", f"{roi:.2f}%")
+                
+                # Position summary with color coding
+                col1, col2, col3, col4 = st.columns(4)
+                
+                with col1:
+                    st.metric("Total Positions", len(positions))
+                
+                with col2:
+                    pl_delta = f"{'+' if total_unrealized >= 0 else ''}${total_unrealized:.2f}"
+                    st.metric("Total Unrealized P&L", f"${total_unrealized:.2f}", delta=pl_delta)
+                
+                with col3:
+                    roi = (total_unrealized / account_summary['balance']) * 100 if account_summary['balance'] > 0 else 0
+                    roi_color = "normal" if roi >= 0 else "inverse"
+                    st.metric("Portfolio ROI", f"{roi:+.2f}%")
+                
+                with col4:
+                    # Calculate average position size
+                    avg_position = sum([float(p['Units'].replace(',', '')) for p in position_data]) / len(position_data)
+                    st.metric("Avg Position Size", f"{avg_position:,.0f} units")
+                
+                # Real-time P&L alerts
+                if total_unrealized > 10:
+                    st.success(f"🎉 **Great job!** Your positions are profitable by ${total_unrealized:.2f}")
+                elif total_unrealized < -20:
+                    st.warning(f"⚠️ **Monitor closely** - Positions are down ${abs(total_unrealized):.2f}")
         
-        # Risk warnings
+        else:
+            st.markdown("""
+            <div class="modern-card" style="text-align: center; padding: 3rem;">
+                <h3 style="color: #64748b; margin-bottom: 1rem;">📭 No Open Positions</h3>
+                <p style="color: #64748b; margin: 0;">All positions are closed. Ready for new trading opportunities!</p>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        # Risk warnings with enhanced styling
         if margin_utilization > 80:
-            st.error("⚠️ **HIGH MARGIN UTILIZATION WARNING**: Consider closing some positions to reduce risk.")
+            st.error("🚨 **HIGH MARGIN UTILIZATION WARNING**: Consider closing some positions to reduce risk.")
         elif margin_utilization > 60:
-            st.warning("⚠️ **MODERATE MARGIN USAGE**: Monitor positions closely.")
-        elif effective_margin_available < 50:
+            st.warning("⚠️ **MODERATE MARGIN USAGE**: Monitor positions closely and avoid over-leveraging.")
+        elif effective_available < 50:
             st.warning("⚠️ **LOW AVAILABLE MARGIN**: Limited capacity for new trades.")
         
-        # Account health summary
-        st.markdown("#### 🏥 Account Health")
+        # Account health summary with enhanced scoring
+        st.markdown("#### 🏥 Account Health Score")
         
         health_score = 100
         health_issues = []
@@ -1170,35 +1562,56 @@ def render_account_status():
         
         if len(positions) >= 3:
             health_score -= 10
-            health_issues.append("Maximum positions reached")
+            health_issues.append("Maximum recommended positions reached")
         
-        if unrealized_pl < -100:
-            health_score -= 15
+        if unrealized_pl < -50:
+            health_score -= 20
             health_issues.append("Significant unrealized losses")
+        elif unrealized_pl < -20:
+            health_score -= 10
+            health_issues.append("Moderate unrealized losses")
         
-        # Display health score
+        # Display health score with color coding
         if health_score >= 80:
-            health_color = "🟢"
+            health_color = "#10b981"
             health_status = "Excellent"
+            health_emoji = "🟢"
         elif health_score >= 60:
-            health_color = "🟡"
+            health_color = "#f59e0b"
             health_status = "Good"
+            health_emoji = "🟡"
         elif health_score >= 40:
-            health_color = "🟠"
+            health_color = "#f97316"
             health_status = "Fair"
+            health_emoji = "🟠"
         else:
-            health_color = "🔴"
+            health_color = "#ef4444"
             health_status = "Poor"
+            health_emoji = "🔴"
         
-        st.markdown(f"**Account Health Score:** {health_color} {health_score}/100 ({health_status})")
+        st.markdown(f"""
+        <div style="background: linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.8) 100%); 
+                    border-left: 6px solid {health_color}; border-radius: 15px; padding: 2rem; margin: 1rem 0;">
+            <h4 style="color: {health_color}; margin: 0;">
+                {health_emoji} Account Health Score: {health_score}/100 ({health_status})
+            </h4>
+        </div>
+        """, unsafe_allow_html=True)
         
         if health_issues:
-            st.markdown("**Issues to address:**")
+            st.markdown("**Areas for improvement:**")
             for issue in health_issues:
                 st.markdown(f"• {issue}")
+        else:
+            st.success("✅ **Perfect!** Your account is in excellent health with no issues detected.")
+        
+        # Add timestamp for last update
+        from datetime import datetime
+        st.caption(f"📊 Last updated: {datetime.now().strftime('%H:%M:%S')} - Data refreshes automatically")
         
     except Exception as e:
         st.error(f"Error getting account status: {e}")
+        st.info("💡 Try refreshing the page or check your internet connection.")
 
 def render_backtest_results():
     """Render backtesting results."""
@@ -1449,11 +1862,11 @@ def check_and_auto_execute_trades():
     for signal in signals:
         if signal.confidence >= 0.75:  # Auto-execute threshold
             try:
-                # Calculate position size (5% risk)
+                # Calculate position size (5% risk) - FIXED CALCULATION
                 if 'JPY' in signal.pair:
-                    stop_pips = abs(signal.entry_price - signal.stop_loss) * 100
+                    stop_pips = abs(signal.entry_price - signal.stop_loss) / 0.01
                 else:
-                    stop_pips = abs(signal.entry_price - signal.stop_loss) * 10000
+                    stop_pips = abs(signal.entry_price - signal.stop_loss) / 0.0001
                 
                 position_size = calculate_position_size_from_risk(1000, 5, stop_pips)
                 pnl_data = calculate_trade_pnl(signal, position_size)
@@ -1474,6 +1887,21 @@ def check_and_auto_execute_trades():
                     
                     # Log the auto-execution
                     log_detailed_trade(signal, order_id, position_size, pnl_data, "AUTO_EXECUTED")
+                    
+                    # Store position-to-signal mapping for enhanced display
+                    if 'position_signal_mapping' not in st.session_state:
+                        st.session_state.position_signal_mapping = {}
+                    
+                    # Create a unique key for this position
+                    position_key = f"{signal.pair}_{signal.signal_type}_{signal.entry_price:.5f}"
+                    st.session_state.position_signal_mapping[position_key] = {
+                        'signal': signal,
+                        'position_size': position_size,
+                        'pnl_data': pnl_data,
+                        'order_id': order_id,
+                        'execution_time': datetime.now(),
+                        'execution_type': "🤖 AUTO-EXECUTED"
+                    }
                     
             except Exception as e:
                 st.error(f"Auto-execution failed for {signal.pair}: {e}")
@@ -1689,7 +2117,7 @@ def render_open_trades():
         st.error(f"Error loading open trades: {e}")
 
 def render_position_card(position, index):
-    """Render individual position card with close functionality."""
+    """Render individual position card with close functionality and enhanced signal data."""
     instrument = position['instrument'].replace('_', '/')
     
     # Determine position details
@@ -1699,7 +2127,7 @@ def render_position_card(position, index):
     if long_units > 0:
         direction = "BUY"
         units = long_units
-        unrealized_pl = float(position['long'].get('unrealizedPL', 0))
+        unrealized = float(position['long'].get('unrealizedPL', 0))
         avg_price = float(position['long'].get('averagePrice', 0))
         direction_color = "#10b981"
         direction_bg = "linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)"
@@ -1707,7 +2135,7 @@ def render_position_card(position, index):
     elif short_units < 0:
         direction = "SELL"
         units = abs(short_units)
-        unrealized_pl = float(position['short'].get('unrealizedPL', 0))
+        unrealized = float(position['short'].get('unrealizedPL', 0))
         avg_price = float(position['short'].get('averagePrice', 0))
         direction_color = "#ef4444"
         direction_bg = "linear-gradient(135deg, #fef2f2 0%, #fecaca 100%)"
@@ -1730,55 +2158,232 @@ def render_position_card(position, index):
         price_change = 0
         price_change_pct = 0
     
+    # Try to find original signal data for this position
+    original_signal = None
+    target_price = None
+    stop_loss = None
+    pips_to_target = None
+    pips_to_stop = None
+    
+    # First, try the position-to-signal mapping (most accurate)
+    if 'position_signal_mapping' in st.session_state:
+        # Try different possible keys for this position
+        possible_keys = [
+            f"{instrument}_{direction}_{avg_price:.5f}",
+            f"{instrument}_{direction}_{avg_price:.4f}",
+            f"{instrument}_{direction}_{avg_price:.3f}"
+        ]
+        
+        for key in possible_keys:
+            if key in st.session_state.position_signal_mapping:
+                mapping_data = st.session_state.position_signal_mapping[key]
+                signal = mapping_data['signal']
+                original_signal = {
+                    'pair': signal.pair,
+                    'type': signal.signal_type,
+                    'confidence': signal.confidence,
+                    'entry_price': signal.entry_price,
+                    'target_price': signal.target_price,
+                    'stop_loss': signal.stop_loss,
+                    'pips_to_target': mapping_data['pnl_data']['pips_to_target'],
+                    'pips_to_stop': mapping_data['pnl_data']['pips_to_stop'],
+                    'status': 'EXECUTED',
+                    'execution_type': mapping_data['execution_type'],
+                    'order_id': mapping_data['order_id']
+                }
+                target_price = signal.target_price
+                stop_loss = signal.stop_loss
+                pips_to_target = mapping_data['pnl_data']['pips_to_target']
+                pips_to_stop = mapping_data['pnl_data']['pips_to_stop']
+                break
+    
+    # Fallback: Look for the original signal in trade log
+    if not original_signal and 'detailed_trade_log' in st.session_state:
+        for trade in st.session_state.detailed_trade_log:
+            if (trade['pair'] == instrument and 
+                trade['type'] == direction and 
+                trade['status'] in ['EXECUTED', 'AUTO_EXECUTED'] and
+                abs(trade['entry_price'] - avg_price) < 0.0001):  # Match entry price
+                original_signal = trade
+                target_price = trade['target_price']
+                stop_loss = trade['stop_loss']
+                pips_to_target = trade['pips_to_target']
+                pips_to_stop = trade['pips_to_stop']
+                break
+    
+    # If no original signal found, estimate target and stop based on typical patterns
+    if not original_signal:
+        # Calculate pip value for this pair
+        if 'JPY' in instrument:
+            pip_value = 0.01
+        else:
+            pip_value = 0.0001
+        
+        # Estimate typical targets (30-50 pips for target, 20-30 pips for stop)
+        if direction == "BUY":
+            target_price = avg_price + (40 * pip_value)  # 40 pips target
+            stop_loss = avg_price - (25 * pip_value)     # 25 pips stop
+            pips_to_target = 40
+            pips_to_stop = 25
+        else:  # SELL
+            target_price = avg_price - (40 * pip_value)  # 40 pips target
+            stop_loss = avg_price + (25 * pip_value)     # 25 pips stop
+            pips_to_target = 40
+            pips_to_stop = 25
+    
+    # Calculate current distance to target and stop
+    if target_price and stop_loss:
+        if 'JPY' in instrument:
+            pip_value = 0.01
+        else:
+            pip_value = 0.0001
+        
+        if direction == "BUY":
+            current_pips_to_target = (target_price - current_price) / pip_value
+            current_pips_to_stop = (current_price - stop_loss) / pip_value
+        else:  # SELL
+            current_pips_to_target = (current_price - target_price) / pip_value
+            current_pips_to_stop = (stop_loss - current_price) / pip_value
+        
+        # Calculate progress towards target
+        total_distance = pips_to_target + pips_to_stop if pips_to_target and pips_to_stop else 65
+        progress_pips = pips_to_stop - current_pips_to_stop if current_pips_to_stop else 0
+        progress_pct = (progress_pips / total_distance) * 100 if total_distance > 0 else 0
+        progress_pct = max(0, min(100, progress_pct))  # Clamp between 0-100%
+    else:
+        current_pips_to_target = 0
+        current_pips_to_stop = 0
+        progress_pct = 0
+    
     # Estimate margin used
     estimated_margin = trader.calculate_margin_required(instrument.replace('/', '_'), int(units))
     
     # P&L styling
-    pnl_color = "#10b981" if unrealized_pl >= 0 else "#ef4444"
-    pnl_sign = "+" if unrealized_pl >= 0 else ""
-    pnl_class = "trade-profit" if unrealized_pl >= 0 else "trade-loss"
+    pnl_color = "#10b981" if unrealized >= 0 else "#ef4444"
+    pnl_sign = "+" if unrealized >= 0 else ""
+    pnl_class = "trade-profit" if unrealized >= 0 else "trade-loss"
     
-    # Position card
+    # Position card header
     st.markdown(f"""
-    <div class="modern-card slide-in" style="background: {direction_bg}; border-left: 6px solid {direction_color};">
+    <div class="modern-card slide-in" style="background: {direction_bg}; border-left: 6px solid {direction_color}; padding: 2rem; border-radius: 20px; margin: 2rem 0;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
             <h3 style="color: {direction_color}; font-size: 2rem; margin: 0;">
                 {direction_emoji} {direction} {instrument}
             </h3>
-            <div class="{pnl_class}">
-                {pnl_sign}£{unrealized_pl:.2f}
-            </div>
-        </div>
-        
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
-            <div class="metric-card">
-                <div class="metric-title">Position Size</div>
-                <div class="metric-value" style="color: #374151; font-size: 1.5rem;">{units:,.0f}</div>
-                <div class="metric-subtitle">units</div>
-            </div>
-            
-            <div class="metric-card">
-                <div class="metric-title">Entry Price</div>
-                <div class="metric-value" style="color: #374151; font-size: 1.5rem;">{avg_price:.5f}</div>
-                <div class="metric-subtitle">average</div>
-            </div>
-            
-            <div class="metric-card">
-                <div class="metric-title">Current Price</div>
-                <div class="metric-value" style="color: {'#10b981' if price_change >= 0 else '#ef4444'}; font-size: 1.5rem;">{current_price:.5f}</div>
-                <div class="metric-subtitle" style="color: {'#10b981' if price_change >= 0 else '#ef4444'};">
-                    {'+' if price_change >= 0 else ''}{price_change_pct:.2f}%
-                </div>
-            </div>
-            
-            <div class="metric-card">
-                <div class="metric-title">Margin Used</div>
-                <div class="metric-value" style="color: #f59e0b; font-size: 1.5rem;">£{estimated_margin:.0f}</div>
-                <div class="metric-subtitle">estimated</div>
+            <div class="{pnl_class}" style="padding: 0.5rem 1rem; border-radius: 20px; font-weight: 600;">
+                {pnl_sign}£{unrealized:.2f}
             </div>
         </div>
     </div>
     """, unsafe_allow_html=True)
+    
+    # Position metrics using Streamlit columns
+    st.markdown("#### 📊 Position Overview")
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        st.metric("Position Size", f"{units:,.0f} units")
+    
+    with col2:
+        st.metric("Entry Price", f"{avg_price:.5f}", "entrance")
+    
+    with col3:
+        price_delta = f"{'+' if price_change >= 0 else ''}{price_change_pct:.2f}%"
+        st.metric("Current Price", f"{current_price:.5f}", price_delta)
+    
+    with col4:
+        st.metric("Margin Used", f"£{estimated_margin:.0f}", "estimated")
+    
+    # Enhanced Target & Stop Loss Section
+    if target_price and stop_loss:
+        st.markdown("#### 🎯 Target & Stop Analysis")
+        
+        # Determine if we're closer to target or stop
+        target_distance = abs(current_pips_to_target)
+        stop_distance = abs(current_pips_to_stop)
+        
+        if current_pips_to_target > 0:
+            target_status = f"🎯 {current_pips_to_target:.1f} pips to target"
+            target_color = "#10b981"
+        else:
+            target_status = f"✅ Target exceeded by {abs(current_pips_to_target):.1f} pips!"
+            target_color = "#059669"
+        
+        if current_pips_to_stop > 0:
+            stop_status = f"🛡️ {current_pips_to_stop:.1f} pips above stop"
+            stop_color = "#10b981"
+        else:
+            stop_status = f"⚠️ {abs(current_pips_to_stop):.1f} pips below stop!"
+            stop_color = "#ef4444"
+        
+        # Progress bar color
+        if progress_pct >= 70:
+            progress_color = "#10b981"  # Green - close to target
+        elif progress_pct >= 30:
+            progress_color = "#f59e0b"  # Yellow - making progress
+        else:
+            progress_color = "#ef4444"  # Red - closer to stop
+        
+        # Target & Stop metrics using Streamlit columns
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            st.metric("Target Price", f"{target_price:.5f}", target_status)
+        
+        with col2:
+            st.metric("Stop Loss", f"{stop_loss:.5f}", stop_status)
+        
+        with col3:
+            st.metric("Progress to Target", f"{progress_pct:.1f}%", "of total distance")
+        
+        with col4:
+            if pips_to_target and pips_to_stop and pips_to_stop > 0:
+                risk_reward = pips_to_target / pips_to_stop
+                st.metric("Risk:Reward", f"1:{risk_reward:.1f}", "original setup")
+            else:
+                st.metric("Risk:Reward", "N/A", "data unavailable")
+        
+        # Progress bar
+        st.markdown("**Progress to Target:**")
+        progress_normalized = progress_pct / 100
+        st.progress(progress_normalized)
+        
+        # Price levels
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.markdown(f"**Stop Loss:** {stop_loss:.5f}")
+        with col2:
+            st.markdown(f"**Current:** {current_price:.5f}")
+        with col3:
+            st.markdown(f"**Target:** {target_price:.5f}")
+    
+    # Signal source information
+    st.markdown("#### 📊 Signal Information")
+    if original_signal:
+        confidence = original_signal.get('confidence', 0)
+        confidence_pct = confidence * 100 if confidence <= 1 else confidence
+        execution_type = original_signal.get('execution_type', 'EXECUTED')
+        order_id = original_signal.get('order_id', 'N/A')
+        
+        st.success("📊 **Original Signal Data Found**")
+        
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.write(f"**Confidence:** {confidence_pct:.1f}%")
+            st.write(f"**Entry:** {original_signal['entry_price']:.5f}")
+        with col2:
+            st.write(f"**Target Pips:** +{original_signal['pips_to_target']:.0f}")
+            st.write(f"**Stop Pips:** -{original_signal['pips_to_stop']:.0f}")
+        with col3:
+            st.write(f"**Execution:** {execution_type}")
+            st.write(f"**Order ID:** {order_id}")
+    else:
+        st.warning("⚠️ **Estimated Targets**")
+        st.info(f"""
+        Original signal data not found. Showing estimated targets based on typical {instrument} patterns.
+        
+        **Estimated:** 40 pips target, 25 pips stop loss (1:1.6 risk/reward)
+        """)
     
     # Action buttons
     col1, col2, col3, col4 = st.columns(4)

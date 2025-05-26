@@ -289,8 +289,8 @@ class OANDATrader:
                 return False
         
         # Check daily risk limits
-        if len(open_positions) >= 3:  # Max 3 concurrent positions
-            logger.info(f"❌ Maximum concurrent positions reached ({len(open_positions)}/3)")
+        if len(open_positions) >= 8:  # Increased from 3 to 8 concurrent positions
+            logger.info(f"❌ Maximum concurrent positions reached ({len(open_positions)}/8)")
             return False
         
         # Check if margin is available for minimum trade size
@@ -379,13 +379,25 @@ class OANDATrader:
             # Determine units (positive for buy, negative for sell)
             units = trade_order.units if trade_order.signal_type == "BUY" else -trade_order.units
             
+            # Format prices with correct precision for the instrument
+            if 'JPY' in instrument:
+                # JPY pairs use 3 decimal places
+                entry_price = f"{trade_order.entry_price:.3f}"
+                target_price = f"{trade_order.target_price:.3f}"
+                stop_loss = f"{trade_order.stop_loss:.3f}"
+            else:
+                # Other pairs use 5 decimal places
+                entry_price = f"{trade_order.entry_price:.5f}"
+                target_price = f"{trade_order.target_price:.5f}"
+                stop_loss = f"{trade_order.stop_loss:.5f}"
+            
             # Log the order details before placing
             logger.info(f"🔄 Placing order:")
             logger.info(f"   Instrument: {instrument}")
             logger.info(f"   Units: {units}")
-            logger.info(f"   Entry: {trade_order.entry_price}")
-            logger.info(f"   Target: {trade_order.target_price}")
-            logger.info(f"   Stop Loss: {trade_order.stop_loss}")
+            logger.info(f"   Entry: {entry_price}")
+            logger.info(f"   Target: {target_price}")
+            logger.info(f"   Stop Loss: {stop_loss}")
             
             order_data = {
                 "order": {
@@ -395,10 +407,10 @@ class OANDATrader:
                     "timeInForce": "FOK",
                     "positionFill": "DEFAULT",
                     "stopLossOnFill": {
-                        "price": str(trade_order.stop_loss)
+                        "price": stop_loss
                     },
                     "takeProfitOnFill": {
-                        "price": str(trade_order.target_price)
+                        "price": target_price
                     }
                 }
             }
@@ -422,9 +434,9 @@ class OANDATrader:
                 logger.info(f"   Order ID: {order_id}")
                 logger.info(f"   {trade_order.signal_type} {trade_order.pair}")
                 logger.info(f"   Units: {units}")
-                logger.info(f"   Entry: {trade_order.entry_price}")
-                logger.info(f"   Target: {trade_order.target_price}")
-                logger.info(f"   Stop Loss: {trade_order.stop_loss}")
+                logger.info(f"   Entry: {entry_price}")
+                logger.info(f"   Target: {target_price}")
+                logger.info(f"   Stop Loss: {stop_loss}")
                 
                 return order_id
             else:
