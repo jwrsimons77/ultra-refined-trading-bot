@@ -95,7 +95,7 @@ class RailwayTradingBot:
     def get_open_positions(self):
         """Get current open positions."""
         try:
-            positions = self.trader.get_positions()
+            positions = self.trader.get_open_positions()
             open_positions = []
             
             for position in positions:
@@ -135,7 +135,7 @@ class RailwayTradingBot:
         """Execute a trade based on signal."""
         try:
             pair = signal['pair']
-            action = signal['action']
+            action = signal['signal_type']
             confidence = signal['confidence']
             
             # Calculate position size
@@ -185,21 +185,36 @@ class RailwayTradingBot:
         """Scan all pairs for trading signals."""
         logger.info("🔍 Scanning for trading signals...")
         
-        signals = []
-        for pair in self.pairs:
-            try:
-                # Generate signal for this pair
-                signal = self.signal_generator.generate_signal(pair)
-                
-                if signal and signal.get('confidence', 0) >= self.min_confidence:
-                    signals.append(signal)
-                    logger.info(f"🎯 Signal found: {pair} {signal['action']} ({signal['confidence']:.1%})")
-                
-            except Exception as e:
-                logger.error(f"❌ Error generating signal for {pair}: {e}")
-        
-        logger.info(f"📊 Found {len(signals)} qualifying signals")
-        return signals
+        # Generate signals for all pairs at once
+        try:
+            all_signals = self.signal_generator.generate_forex_signals(
+                max_signals=10, 
+                min_confidence=self.min_confidence
+            )
+            
+            # Filter signals for our trading pairs
+            signals = []
+            for signal in all_signals:
+                if signal.pair in self.pairs and signal.confidence >= self.min_confidence:
+                    # Convert ForexSignal object to dict for compatibility
+                    signal_dict = {
+                        'pair': signal.pair,
+                        'signal_type': signal.signal_type,
+                        'confidence': signal.confidence,
+                        'entry_price': signal.entry_price,
+                        'target_price': signal.target_price,
+                        'stop_loss': signal.stop_loss,
+                        'reason': signal.reason
+                    }
+                    signals.append(signal_dict)
+                    logger.info(f"🎯 Signal found: {signal.pair} {signal.signal_type} ({signal.confidence:.1%})")
+            
+            logger.info(f"📊 Found {len(signals)} qualifying signals")
+            return signals
+            
+        except Exception as e:
+            logger.error(f"❌ Error generating signals: {e}")
+            return []
     
     def trading_session(self):
         """Execute one trading session."""
