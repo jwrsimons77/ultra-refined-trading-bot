@@ -71,11 +71,11 @@ class RailwayTradingBot:
     def get_account_info(self):
         """Get current account information."""
         try:
-            account_info = self.trader.get_account_info()
+            account_info = self.trader.get_account_summary()
             balance = float(account_info.get('balance', 0))
-            nav = float(account_info.get('NAV', 0))
-            margin_used = float(account_info.get('marginUsed', 0))
-            margin_available = float(account_info.get('marginAvailable', 0))
+            nav = float(account_info.get('nav', 0))
+            margin_used = float(account_info.get('margin_used', 0))
+            margin_available = float(account_info.get('margin_available', 0))
             
             logger.info(f"💰 Account Balance: ${balance:,.2f}")
             logger.info(f"📊 NAV: ${nav:,.2f}")
