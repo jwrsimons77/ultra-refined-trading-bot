@@ -407,29 +407,30 @@ class ForexSignalGenerator:
         # Combine sentiment and technical analysis
         combined_score = (news_sentiment * 0.6 + technical_score * 0.4)
         
-        # LOWERED THRESHOLD: Generate more signals for testing
-        if abs(combined_score) < 0.05:  # Much lower threshold (was 0.15)
-            return None
-        
-        signal_type = "BUY" if combined_score > 0 else "SELL"
-        
-        # Calculate confidence (combine sentiment and technical confidence) - IMPROVED
-        base_confidence = min(abs(combined_score) * 3.5, 0.95)  # Increased multiplier from 2 to 3.5
+        # Calculate confidence (combine sentiment and technical confidence) - OPTIMIZED FOR MORE SIGNALS
+        base_confidence = min(abs(combined_score) * 4.0, 0.95)  # Increased multiplier from 3.5 to 4.0
         
         # Boost confidence with technical analysis confidence - ENHANCED
         if 'Advanced' in technical_source:
-            confidence_boost = technical_confidence * 0.35  # Increased from 0.2 to 0.35
+            confidence_boost = technical_confidence * 0.4  # Increased from 0.35 to 0.4
         else:
-            confidence_boost = 0.15  # Increased from 0.05 to 0.15
+            confidence_boost = 0.2  # Increased from 0.15 to 0.2
         
-        # Additional confidence boost for strong signals
-        if abs(combined_score) > 0.15:  # Strong signal
-            confidence_boost += 0.2
-        elif abs(combined_score) > 0.10:  # Moderate signal
+        # Additional confidence boost for strong signals - MORE AGGRESSIVE
+        if abs(combined_score) > 0.12:  # Lowered threshold from 0.15 to 0.12
+            confidence_boost += 0.25  # Increased from 0.2 to 0.25
+        elif abs(combined_score) > 0.08:  # Lowered threshold from 0.10 to 0.08
+            confidence_boost += 0.15  # Increased from 0.1 to 0.15
+        elif abs(combined_score) > 0.05:  # New tier for moderate signals
             confidence_boost += 0.1
         
         confidence = min(base_confidence + confidence_boost, 0.95)
-        confidence = max(confidence, 0.35)  # Increased minimum from 25% to 35%
+        
+        # Generate signal only if above minimum threshold - LOWERED THRESHOLD
+        if confidence < 0.35:  # Lowered from 0.05 to catch more signals but still filter noise
+            return None
+        
+        signal_type = "BUY" if combined_score > 0 else "SELL"
         
         # Use dynamic levels if advanced technical analysis is available
         if self.advanced_technical and atr > 0.001:

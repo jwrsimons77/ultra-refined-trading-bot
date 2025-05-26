@@ -10,6 +10,7 @@ import requests
 from datetime import datetime, timedelta
 import logging
 from typing import Dict, List, Optional, Tuple
+import ta
 
 logger = logging.getLogger(__name__)
 
@@ -146,72 +147,73 @@ class SimpleTechnicalAnalyzer:
         
         return atr
     
-    def analyze_momentum_indicators(self, df: pd.DataFrame) -> Dict[str, float]:
-        """
-        Analyze momentum indicators: RSI, MACD
-        Returns signals from -1 (strong sell) to +1 (strong buy)
-        """
+    def analyze_momentum(self, df: pd.DataFrame) -> Dict[str, float]:
+        """Analyze momentum indicators - OPTIMIZED FOR BETTER ENTRIES."""
         try:
-            signals = {}
+            # RSI (14-period) - MORE SENSITIVE THRESHOLDS
+            rsi = ta.momentum.RSIIndicator(df['close'], window=14).rsi().iloc[-1]
             
-            # 1. RSI Analysis
-            rsi = self.calculate_rsi(df['close'])
-            current_rsi = rsi.iloc[-1] if not rsi.empty else 50
+            # MACD - MORE RESPONSIVE SETTINGS
+            macd_indicator = ta.trend.MACD(df['close'], window_slow=26, window_fast=12, window_sign=9)
+            macd_line = macd_indicator.macd().iloc[-1]
+            macd_signal = macd_indicator.macd_signal().iloc[-1]
+            macd_histogram = macd_indicator.macd_diff().iloc[-1]
             
-            if current_rsi > 70:
-                rsi_signal = -0.8  # Overbought - sell signal
-            elif current_rsi < 30:
-                rsi_signal = 0.8   # Oversold - buy signal
-            elif current_rsi > 60:
-                rsi_signal = -0.4  # Moderately overbought
-            elif current_rsi < 40:
-                rsi_signal = 0.4   # Moderately oversold
+            # Rate of Change (10-period) - SHORTER PERIOD FOR FASTER SIGNALS
+            roc = ta.momentum.ROCIndicator(df['close'], window=10).roc().iloc[-1]
+            
+            # RSI scoring - MORE AGGRESSIVE THRESHOLDS
+            if rsi > 75:  # Lowered from 80
+                rsi_score = -0.8  # Stronger signal
+            elif rsi > 65:  # New threshold
+                rsi_score = -0.4
+            elif rsi < 25:  # Lowered from 20
+                rsi_score = 0.8  # Stronger signal
+            elif rsi < 35:  # New threshold
+                rsi_score = 0.4
             else:
-                rsi_signal = 0.0   # Neutral
+                rsi_score = 0.0
             
-            signals['rsi'] = rsi_signal
-            
-            # 2. MACD Analysis
-            macd_data = self.calculate_macd(df['close'])
-            macd_line = macd_data['macd'].iloc[-1]
-            signal_line = macd_data['signal'].iloc[-1]
-            histogram = macd_data['histogram'].iloc[-1]
-            
-            # MACD signal based on line crossover and histogram
-            if macd_line > signal_line and histogram > 0:
-                macd_signal = 0.6  # Bullish
-            elif macd_line < signal_line and histogram < 0:
-                macd_signal = -0.6  # Bearish
+            # MACD scoring - MORE SENSITIVE
+            if macd_line > macd_signal and macd_histogram > 0:
+                macd_score = 0.6  # Increased from 0.5
+            elif macd_line < macd_signal and macd_histogram < 0:
+                macd_score = -0.6  # Increased from -0.5
             else:
-                macd_signal = np.clip(histogram * 100, -0.5, 0.5)  # Proportional to histogram
+                macd_score = 0.0
             
-            signals['macd'] = macd_signal
-            
-            # 3. Price Momentum (Rate of Change)
-            roc = ((df['close'].iloc[-1] / df['close'].iloc[-10]) - 1) * 100  # 10-period ROC
-            if roc > 2:
-                momentum_signal = 0.5
-            elif roc < -2:
-                momentum_signal = -0.5
+            # ROC scoring - MORE RESPONSIVE
+            if roc > 1.5:  # Lowered threshold from 2.0
+                roc_score = 0.5
+            elif roc > 0.5:  # New threshold
+                roc_score = 0.3
+            elif roc < -1.5:  # Lowered threshold from -2.0
+                roc_score = -0.5
+            elif roc < -0.5:  # New threshold
+                roc_score = -0.3
             else:
-                momentum_signal = roc * 0.1
+                roc_score = 0.0
             
-            signals['momentum'] = momentum_signal
+            # Combined momentum score - WEIGHTED FOR BETTER SIGNALS
+            momentum_score = (rsi_score * 0.4 + macd_score * 0.4 + roc_score * 0.2)  # Increased MACD weight
             
-            # Combined momentum signal
-            momentum_combined = (signals['rsi'] + signals['macd'] + signals['momentum']) / 3
-            
-            logger.info(f"📈 Momentum Analysis: RSI={current_rsi:.1f}, MACD={macd_signal:.2f}, ROC={roc:.2f}, Combined={momentum_combined:.2f}")
+            logger.info(f"📈 Momentum Analysis: RSI={rsi:.1f}, MACD={macd_score:.2f}, ROC={roc:.2f}, Combined={momentum_score:.2f}")
             
             return {
-                'combined': momentum_combined,
-                'breakdown': signals,
-                'rsi_value': current_rsi
+                'rsi': rsi,
+                'macd_line': macd_line,
+                'macd_signal': macd_signal,
+                'macd_histogram': macd_histogram,
+                'roc': roc,
+                'rsi_score': rsi_score,
+                'macd_score': macd_score,
+                'roc_score': roc_score,
+                'momentum_score': momentum_score
             }
             
         except Exception as e:
             logger.error(f"Error in momentum analysis: {e}")
-            return {'combined': 0.0, 'breakdown': {}, 'rsi_value': 50}
+            return {'momentum_score': 0.0}
     
     def analyze_trend_indicators(self, df: pd.DataFrame) -> Dict[str, float]:
         """
@@ -358,25 +360,30 @@ class SimpleTechnicalAnalyzer:
                     continue
                 
                 # Analyze each component
-                momentum = self.analyze_momentum_indicators(df)
+                momentum = self.analyze_momentum(df)
                 trend = self.analyze_trend_indicators(df)
                 sr_signal = self.analyze_support_resistance(df)
+                
+                # NEW: Add chart pattern analysis
+                pattern_analysis = self.detect_chart_patterns(df)
+                pattern_score = pattern_analysis['pattern_score']
                 
                 # Calculate ATR for daily timeframe (for stop loss calculation)
                 if timeframe == 'D':
                     atr_series = self.calculate_atr(df)
                     atr_daily = atr_series.iloc[-1] if not atr_series.empty else 0.001
                 
-                # Combine indicators with weights
+                # Combine indicators with weights - UPDATED TO INCLUDE PATTERNS
                 timeframe_score = (
-                    momentum['combined'] * self.indicator_weights['momentum'] +
-                    trend['combined'] * self.indicator_weights['trend'] +
-                    sr_signal * self.indicator_weights['support_resistance']
+                    momentum['momentum_score'] * 0.25 +      # Reduced from 0.4
+                    trend['combined'] * 0.25 +               # Reduced from 0.35  
+                    sr_signal * 0.2 +                        # Reduced from 0.25
+                    pattern_score * 0.3                      # NEW: 30% weight for patterns
                 )
                 
                 timeframe_scores[timeframe] = timeframe_score
                 
-                logger.info(f"📊 {timeframe} Score: {timeframe_score:.3f} (Momentum: {momentum['combined']:.2f}, Trend: {trend['combined']:.2f}, S/R: {sr_signal:.2f})")
+                logger.info(f"📊 {timeframe} Score: {timeframe_score:.3f} (Momentum: {momentum['momentum_score']:.2f}, Trend: {trend['combined']:.2f}, S/R: {sr_signal:.2f}, Patterns: {pattern_score:.2f})")
             
             # Calculate weighted final score
             final_score = 0.0
@@ -570,6 +577,397 @@ class SimpleTechnicalAnalyzer:
         except Exception as e:
             logger.error(f"Error predicting hold time: {e}")
             return {'hours': 24, 'days': 1, 'confidence': 'Low'}
+    
+    def detect_chart_patterns(self, df: pd.DataFrame) -> Dict[str, float]:
+        """
+        Detect professional chart patterns that actually make money
+        Based on the patterns from forex.com and professional trading
+        """
+        try:
+            patterns_detected = {}
+            pattern_score = 0.0
+            
+            # Need at least 50 candles for pattern detection
+            if len(df) < 50:
+                return {'pattern_score': 0.0, 'patterns': {}}
+            
+            # 1. HEAD AND SHOULDERS PATTERN
+            h_s_score = self._detect_head_and_shoulders(df)
+            if abs(h_s_score) > 0.3:
+                patterns_detected['head_shoulders'] = h_s_score
+                pattern_score += h_s_score * 0.8  # High weight - very reliable
+            
+            # 2. DOUBLE TOP/BOTTOM PATTERN  
+            double_score = self._detect_double_top_bottom(df)
+            if abs(double_score) > 0.3:
+                patterns_detected['double_pattern'] = double_score
+                pattern_score += double_score * 0.7  # High weight
+            
+            # 3. TRIANGLE PATTERNS (Ascending, Descending, Symmetrical)
+            triangle_score = self._detect_triangle_patterns(df)
+            if abs(triangle_score) > 0.2:
+                patterns_detected['triangle'] = triangle_score
+                pattern_score += triangle_score * 0.6  # Medium-high weight
+            
+            # 4. FLAG AND PENNANT PATTERNS
+            flag_score = self._detect_flag_pennant(df)
+            if abs(flag_score) > 0.2:
+                patterns_detected['flag_pennant'] = flag_score
+                pattern_score += flag_score * 0.5  # Medium weight
+            
+            # 5. SUPPORT/RESISTANCE BREAKOUTS
+            breakout_score = self._detect_breakout_patterns(df)
+            if abs(breakout_score) > 0.3:
+                patterns_detected['breakout'] = breakout_score
+                pattern_score += breakout_score * 0.6
+            
+            # 6. ENGULFING CANDLESTICK PATTERNS
+            engulfing_score = self._detect_engulfing_patterns(df)
+            if abs(engulfing_score) > 0.4:
+                patterns_detected['engulfing'] = engulfing_score
+                pattern_score += engulfing_score * 0.4
+            
+            # Cap the total score
+            pattern_score = max(-1.0, min(1.0, pattern_score))
+            
+            logger.info(f"🎯 Chart Patterns: {patterns_detected}, Total Score: {pattern_score:.2f}")
+            
+            return {
+                'pattern_score': pattern_score,
+                'patterns': patterns_detected
+            }
+            
+        except Exception as e:
+            logger.error(f"Error detecting chart patterns: {e}")
+            return {'pattern_score': 0.0, 'patterns': {}}
+    
+    def _detect_head_and_shoulders(self, df: pd.DataFrame) -> float:
+        """Detect Head and Shoulders pattern - most reliable reversal pattern"""
+        try:
+            # Look at last 30-50 candles for pattern
+            recent_data = df.tail(50)
+            highs = recent_data['high'].values
+            lows = recent_data['low'].values
+            closes = recent_data['close'].values
+            
+            # Find potential peaks (local maxima)
+            peaks = []
+            for i in range(2, len(highs) - 2):
+                if highs[i] > highs[i-1] and highs[i] > highs[i+1] and highs[i] > highs[i-2] and highs[i] > highs[i+2]:
+                    peaks.append((i, highs[i]))
+            
+            if len(peaks) < 3:
+                return 0.0
+            
+            # Check for head and shoulders pattern in last 3 peaks
+            if len(peaks) >= 3:
+                left_shoulder = peaks[-3]
+                head = peaks[-2] 
+                right_shoulder = peaks[-1]
+                
+                # Head should be higher than both shoulders
+                if head[1] > left_shoulder[1] and head[1] > right_shoulder[1]:
+                    # Shoulders should be roughly equal (within 20%)
+                    shoulder_diff = abs(left_shoulder[1] - right_shoulder[1]) / left_shoulder[1]
+                    
+                    if shoulder_diff < 0.2:  # Shoulders within 20% of each other
+                        # Check if we're breaking neckline (support)
+                        neckline_level = min(lows[left_shoulder[0]:head[0]].min(), 
+                                           lows[head[0]:right_shoulder[0]].min())
+                        
+                        current_price = closes[-1]
+                        
+                        # Bearish H&S: price breaking below neckline
+                        if current_price < neckline_level:
+                            return -0.8  # Strong bearish signal
+                        # Approaching neckline
+                        elif current_price < neckline_level * 1.02:
+                            return -0.5  # Moderate bearish signal
+            
+            # Check for INVERSE Head and Shoulders (bullish)
+            troughs = []
+            for i in range(2, len(lows) - 2):
+                if lows[i] < lows[i-1] and lows[i] < lows[i+1] and lows[i] < lows[i-2] and lows[i] < lows[i+2]:
+                    troughs.append((i, lows[i]))
+            
+            if len(troughs) >= 3:
+                left_shoulder = troughs[-3]
+                head = troughs[-2]
+                right_shoulder = troughs[-1]
+                
+                # Head should be lower than both shoulders
+                if head[1] < left_shoulder[1] and head[1] < right_shoulder[1]:
+                    shoulder_diff = abs(left_shoulder[1] - right_shoulder[1]) / left_shoulder[1]
+                    
+                    if shoulder_diff < 0.2:
+                        # Check neckline breakout (resistance)
+                        neckline_level = max(highs[left_shoulder[0]:head[0]].max(),
+                                           highs[head[0]:right_shoulder[0]].max())
+                        
+                        current_price = closes[-1]
+                        
+                        # Bullish inverse H&S: price breaking above neckline
+                        if current_price > neckline_level:
+                            return 0.8  # Strong bullish signal
+                        elif current_price > neckline_level * 0.98:
+                            return 0.5  # Moderate bullish signal
+            
+            return 0.0
+            
+        except Exception as e:
+            logger.error(f"Error detecting head and shoulders: {e}")
+            return 0.0
+    
+    def _detect_double_top_bottom(self, df: pd.DataFrame) -> float:
+        """Detect Double Top/Bottom patterns"""
+        try:
+            recent_data = df.tail(40)
+            highs = recent_data['high'].values
+            lows = recent_data['low'].values
+            closes = recent_data['close'].values
+            
+            # Find peaks for double top
+            peaks = []
+            for i in range(1, len(highs) - 1):
+                if highs[i] > highs[i-1] and highs[i] > highs[i+1]:
+                    peaks.append((i, highs[i]))
+            
+            # Check for double top (bearish)
+            if len(peaks) >= 2:
+                last_two_peaks = peaks[-2:]
+                peak1, peak2 = last_two_peaks
+                
+                # Peaks should be roughly equal (within 15%)
+                peak_diff = abs(peak1[1] - peak2[1]) / peak1[1]
+                if peak_diff < 0.15:
+                    # Find the valley between peaks
+                    valley_start = peak1[0]
+                    valley_end = peak2[0]
+                    valley_low = lows[valley_start:valley_end].min()
+                    
+                    current_price = closes[-1]
+                    
+                    # Breaking below valley = confirmed double top
+                    if current_price < valley_low:
+                        return -0.7  # Strong bearish
+                    elif current_price < valley_low * 1.01:
+                        return -0.4  # Moderate bearish
+            
+            # Find troughs for double bottom
+            troughs = []
+            for i in range(1, len(lows) - 1):
+                if lows[i] < lows[i-1] and lows[i] < lows[i+1]:
+                    troughs.append((i, lows[i]))
+            
+            # Check for double bottom (bullish)
+            if len(troughs) >= 2:
+                last_two_troughs = troughs[-2:]
+                trough1, trough2 = last_two_troughs
+                
+                trough_diff = abs(trough1[1] - trough2[1]) / trough1[1]
+                if trough_diff < 0.15:
+                    # Find the peak between troughs
+                    peak_start = trough1[0]
+                    peak_end = trough2[0]
+                    peak_high = highs[peak_start:peak_end].max()
+                    
+                    current_price = closes[-1]
+                    
+                    # Breaking above peak = confirmed double bottom
+                    if current_price > peak_high:
+                        return 0.7  # Strong bullish
+                    elif current_price > peak_high * 0.99:
+                        return 0.4  # Moderate bullish
+            
+            return 0.0
+            
+        except Exception as e:
+            logger.error(f"Error detecting double top/bottom: {e}")
+            return 0.0
+    
+    def _detect_triangle_patterns(self, df: pd.DataFrame) -> float:
+        """Detect Triangle patterns (Ascending, Descending, Symmetrical)"""
+        try:
+            recent_data = df.tail(30)
+            highs = recent_data['high'].values
+            lows = recent_data['low'].values
+            closes = recent_data['close'].values
+            
+            if len(recent_data) < 20:
+                return 0.0
+            
+            # Find trend in highs and lows
+            high_trend = np.polyfit(range(len(highs)), highs, 1)[0]
+            low_trend = np.polyfit(range(len(lows)), lows, 1)[0]
+            
+            current_price = closes[-1]
+            recent_high = highs[-5:].max()
+            recent_low = lows[-5:].min()
+            
+            # Ascending Triangle (bullish) - flat resistance, rising support
+            if abs(high_trend) < 0.0001 and low_trend > 0.0001:
+                # Price near resistance line
+                if current_price > recent_high * 0.995:
+                    return 0.6  # Bullish breakout likely
+                else:
+                    return 0.3  # Building bullish pressure
+            
+            # Descending Triangle (bearish) - declining resistance, flat support  
+            elif high_trend < -0.0001 and abs(low_trend) < 0.0001:
+                # Price near support line
+                if current_price < recent_low * 1.005:
+                    return -0.6  # Bearish breakdown likely
+                else:
+                    return -0.3  # Building bearish pressure
+            
+            # Symmetrical Triangle - converging lines
+            elif high_trend < -0.0001 and low_trend > 0.0001:
+                # Breakout direction depends on which line breaks first
+                if current_price > recent_high * 0.995:
+                    return 0.5  # Bullish breakout
+                elif current_price < recent_low * 1.005:
+                    return -0.5  # Bearish breakdown
+                else:
+                    return 0.0  # Still consolidating
+            
+            return 0.0
+            
+        except Exception as e:
+            logger.error(f"Error detecting triangles: {e}")
+            return 0.0
+    
+    def _detect_flag_pennant(self, df: pd.DataFrame) -> float:
+        """Detect Flag and Pennant continuation patterns"""
+        try:
+            recent_data = df.tail(20)
+            
+            if len(recent_data) < 15:
+                return 0.0
+            
+            closes = recent_data['close'].values
+            highs = recent_data['high'].values
+            lows = recent_data['low'].values
+            
+            # Check for strong move before consolidation (flagpole)
+            flagpole_start = closes[0]
+            consolidation_start = closes[5]
+            
+            # Strong upward move followed by sideways/slight down (bullish flag)
+            if consolidation_start > flagpole_start * 1.02:  # 2% move up
+                # Check if recent price action is consolidating
+                recent_range = highs[-10:].max() - lows[-10:].min()
+                total_range = highs.max() - lows.min()
+                
+                # Consolidation should be smaller than total range
+                if recent_range < total_range * 0.6:
+                    current_price = closes[-1]
+                    consolidation_high = highs[-10:].max()
+                    
+                    # Breaking above consolidation = continuation
+                    if current_price > consolidation_high:
+                        return 0.6  # Bullish continuation
+                    elif current_price > consolidation_high * 0.995:
+                        return 0.3  # Approaching breakout
+            
+            # Strong downward move followed by sideways/slight up (bearish flag)
+            elif consolidation_start < flagpole_start * 0.98:  # 2% move down
+                recent_range = highs[-10:].max() - lows[-10:].min()
+                total_range = highs.max() - lows.min()
+                
+                if recent_range < total_range * 0.6:
+                    current_price = closes[-1]
+                    consolidation_low = lows[-10:].min()
+                    
+                    # Breaking below consolidation = continuation
+                    if current_price < consolidation_low:
+                        return -0.6  # Bearish continuation
+                    elif current_price < consolidation_low * 1.005:
+                        return -0.3  # Approaching breakdown
+            
+            return 0.0
+            
+        except Exception as e:
+            logger.error(f"Error detecting flags/pennants: {e}")
+            return 0.0
+    
+    def _detect_breakout_patterns(self, df: pd.DataFrame) -> float:
+        """Detect support/resistance breakout patterns"""
+        try:
+            recent_data = df.tail(25)
+            
+            if len(recent_data) < 20:
+                return 0.0
+            
+            closes = recent_data['close'].values
+            highs = recent_data['high'].values
+            lows = recent_data['low'].values
+            
+            # Find recent support and resistance levels
+            resistance_level = highs[:-5].max()  # Exclude last 5 candles
+            support_level = lows[:-5].min()      # Exclude last 5 candles
+            
+            current_price = closes[-1]
+            previous_price = closes[-2]
+            
+            # Resistance breakout (bullish)
+            if current_price > resistance_level and previous_price <= resistance_level:
+                # Confirm with volume if available
+                return 0.7  # Strong bullish breakout
+            elif current_price > resistance_level * 0.998:
+                return 0.4  # Approaching resistance
+            
+            # Support breakdown (bearish)
+            elif current_price < support_level and previous_price >= support_level:
+                return -0.7  # Strong bearish breakdown
+            elif current_price < support_level * 1.002:
+                return -0.4  # Approaching support
+            
+            return 0.0
+            
+        except Exception as e:
+            logger.error(f"Error detecting breakouts: {e}")
+            return 0.0
+    
+    def _detect_engulfing_patterns(self, df: pd.DataFrame) -> float:
+        """Detect bullish/bearish engulfing candlestick patterns"""
+        try:
+            if len(df) < 2:
+                return 0.0
+            
+            # Get last two candles
+            prev_candle = df.iloc[-2]
+            curr_candle = df.iloc[-1]
+            
+            prev_body = abs(prev_candle['close'] - prev_candle['open'])
+            curr_body = abs(curr_candle['close'] - curr_candle['open'])
+            
+            # Need significant body sizes
+            if prev_body < (prev_candle['high'] - prev_candle['low']) * 0.6:
+                return 0.0
+            if curr_body < (curr_candle['high'] - curr_candle['low']) * 0.6:
+                return 0.0
+            
+            # Bullish Engulfing: bearish candle followed by larger bullish candle
+            if (prev_candle['close'] < prev_candle['open'] and  # Previous bearish
+                curr_candle['close'] > curr_candle['open'] and  # Current bullish
+                curr_candle['open'] < prev_candle['close'] and  # Opens below prev close
+                curr_candle['close'] > prev_candle['open']):    # Closes above prev open
+                
+                return 0.6  # Strong bullish signal
+            
+            # Bearish Engulfing: bullish candle followed by larger bearish candle
+            elif (prev_candle['close'] > prev_candle['open'] and  # Previous bullish
+                  curr_candle['close'] < curr_candle['open'] and  # Current bearish
+                  curr_candle['open'] > prev_candle['close'] and  # Opens above prev close
+                  curr_candle['close'] < prev_candle['open']):    # Closes below prev open
+                
+                return -0.6  # Strong bearish signal
+            
+            return 0.0
+            
+        except Exception as e:
+            logger.error(f"Error detecting engulfing patterns: {e}")
+            return 0.0
 
 # Test the analyzer
 if __name__ == "__main__":
