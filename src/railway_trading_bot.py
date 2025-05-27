@@ -153,28 +153,32 @@ class RailwayTradingBot:
             logger.info(f"📊 Confidence: {confidence:.1%}")
             logger.info(f"💰 Position size: {position_size:,} units")
             
-            # Execute the trade
-            result = self.trader.place_order(
+            # Create TradeOrder object
+            from src.oanda_trader import TradeOrder
+            
+            trade_order = TradeOrder(
                 pair=pair,
-                units=position_size if action == 'BUY' else -position_size,
-                order_type='MARKET',
-                stop_loss_pips=stop_loss_pips,
-                take_profit_pips=take_profit_pips
+                signal_type=action,
+                entry_price=signal['entry_price'],
+                target_price=signal['target_price'],
+                stop_loss=signal['stop_loss'],
+                confidence=confidence,
+                units=position_size,
+                risk_amount=account_balance * self.risk_per_trade
             )
             
-            if result and 'orderFillTransaction' in result:
-                trade_id = result['orderFillTransaction']['id']
-                price = float(result['orderFillTransaction']['price'])
-                
+            # Execute the trade
+            order_id = self.trader.place_market_order(trade_order)
+            
+            if order_id:
                 logger.info(f"✅ Trade executed successfully!")
-                logger.info(f"📊 Trade ID: {trade_id}")
-                logger.info(f"💰 Entry price: {price}")
+                logger.info(f"📊 Trade ID: {order_id}")
                 
                 self.daily_trades += 1
                 self.total_trades += 1
                 return True
             else:
-                logger.error(f"❌ Trade execution failed: {result}")
+                logger.error(f"❌ Trade execution failed")
                 return False
                 
         except Exception as e:

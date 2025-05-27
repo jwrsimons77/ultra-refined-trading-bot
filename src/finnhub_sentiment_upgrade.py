@@ -91,13 +91,25 @@ class FinnhubSentimentAnalyzer:
             if response.status_code == 200:
                 news_data = response.json()
                 
+                # Check if news_data is a list and not empty
+                if not isinstance(news_data, list) or len(news_data) == 0:
+                    self.logger.info(f"📰 No Finnhub news data available for {base_currency}/{quote_currency}")
+                    return 0
+                
                 # Filter news relevant to our currencies
                 relevant_news = []
                 base_keywords = self.currency_keywords.get(base_currency, [])
                 quote_keywords = self.currency_keywords.get(quote_currency, [])
                 all_keywords = base_keywords + quote_keywords
                 
-                for article in news_data[:20]:  # Analyze last 20 articles
+                # Safely iterate through news articles
+                for i, article in enumerate(news_data):
+                    if i >= 20:  # Limit to first 20 articles
+                        break
+                    
+                    if not isinstance(article, dict):
+                        continue
+                        
                     headline = article.get('headline', '').lower()
                     summary = article.get('summary', '').lower()
                     
@@ -109,14 +121,25 @@ class FinnhubSentimentAnalyzer:
                 # Analyze sentiment of relevant news
                 if relevant_news:
                     total_sentiment = 0
-                    for article in relevant_news:
-                        text = f"{article.get('headline', '')} {article.get('summary', '')}"
-                        sentiment = self.analyze_financial_text_sentiment(text)
-                        total_sentiment += sentiment
+                    valid_articles = 0
                     
-                    avg_sentiment = total_sentiment / len(relevant_news)
-                    self.logger.info(f"📰 Finnhub found {len(relevant_news)} relevant articles for {base_currency}/{quote_currency}")
-                    return avg_sentiment
+                    for article in relevant_news:
+                        if not isinstance(article, dict):
+                            continue
+                            
+                        text = f"{article.get('headline', '')} {article.get('summary', '')}"
+                        if text.strip():  # Only analyze non-empty text
+                            sentiment = self.analyze_financial_text_sentiment(text)
+                            total_sentiment += sentiment
+                            valid_articles += 1
+                    
+                    if valid_articles > 0:
+                        avg_sentiment = total_sentiment / valid_articles
+                        self.logger.info(f"📰 Finnhub found {valid_articles} relevant articles for {base_currency}/{quote_currency}")
+                        return avg_sentiment
+                    else:
+                        self.logger.info(f"📰 No valid Finnhub articles found for {base_currency}/{quote_currency}")
+                        return 0
                 else:
                     self.logger.info(f"📰 No relevant Finnhub articles found for {base_currency}/{quote_currency}")
                     return 0
@@ -168,16 +191,24 @@ class FinnhubSentimentAnalyzer:
                         if response.status_code == 200:
                             company_news = response.json()
                             
-                            if company_news:
+                            # Check if company_news is a list and not empty
+                            if isinstance(company_news, list) and len(company_news) > 0:
                                 # Analyze sentiment of recent company news
                                 company_sentiment = 0
-                                for article in company_news[:5]:  # Last 5 articles
-                                    text = f"{article.get('headline', '')} {article.get('summary', '')}"
-                                    sentiment = self.analyze_financial_text_sentiment(text)
-                                    company_sentiment += sentiment
+                                valid_articles = 0
                                 
-                                if len(company_news) > 0:
-                                    avg_company_sentiment = company_sentiment / min(len(company_news), 5)
+                                for article in company_news[:5]:  # Last 5 articles
+                                    if not isinstance(article, dict):
+                                        continue
+                                        
+                                    text = f"{article.get('headline', '')} {article.get('summary', '')}"
+                                    if text.strip():  # Only analyze non-empty text
+                                        sentiment = self.analyze_financial_text_sentiment(text)
+                                        company_sentiment += sentiment
+                                        valid_articles += 1
+                                
+                                if valid_articles > 0:
+                                    avg_company_sentiment = company_sentiment / valid_articles
                                     total_sentiment += avg_company_sentiment * weight
                                     company_count += 1
                         
