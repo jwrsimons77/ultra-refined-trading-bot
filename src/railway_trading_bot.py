@@ -112,23 +112,37 @@ class RailwayTradingBot:
         """Calculate position size based on risk management."""
         risk_amount = account_balance * self.risk_per_trade
         
-        # Estimate pip value (simplified)
+        # More accurate pip value calculation
         if 'JPY' in pair:
             pip_value = 0.01  # For JPY pairs
+            typical_price = 150.0  # Typical USD/JPY price
         else:
             pip_value = 0.0001  # For other pairs
+            typical_price = 1.0  # Typical price around 1.0
+        
+        # Use actual pip value in account currency (USD)
+        pip_value_usd = pip_value * typical_price
         
         # Assume 20 pip stop loss
         stop_loss_pips = 20
-        position_size = int(risk_amount / (stop_loss_pips * pip_value))
         
-        # Ensure minimum position size
-        min_size = 1000
-        max_size = 100000  # Maximum position size
+        # Calculate position size based on risk
+        position_size = int(risk_amount / (stop_loss_pips * pip_value_usd))
+        
+        # Conservative limits for $10k account
+        min_size = 1000      # Minimum 1k units (0.001 lots)
+        max_size = 10000     # Maximum 10k units (0.01 lots) - much more conservative
         
         position_size = max(min_size, min(position_size, max_size))
         
-        logger.info(f"📊 Position size for {pair}: {position_size:,} units")
+        # Log the calculation for transparency
+        logger.info(f"📊 Position sizing for {pair}:")
+        logger.info(f"   Risk amount: ${risk_amount:.2f}")
+        logger.info(f"   Stop loss: {stop_loss_pips} pips")
+        logger.info(f"   Pip value: ${pip_value_usd:.6f}")
+        logger.info(f"   Calculated size: {position_size:,} units")
+        logger.info(f"   Lot size: {position_size/100000:.3f} lots")
+        
         return position_size
     
     def execute_trade(self, signal: dict, account_balance: float):
