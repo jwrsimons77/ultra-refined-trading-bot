@@ -7,14 +7,32 @@ Fixes all critical issues and implements proven improvements
 
 import sys
 import os
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
+# Robust path setup for Railway deployment
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.dirname(current_dir)
+
+# Add both current directory and parent directory to path
+sys.path.insert(0, current_dir)
+sys.path.insert(0, parent_dir)
+
+# For Railway deployment, also add common paths
+if '/app' in current_dir or 'railway' in os.environ.get('RAILWAY_ENVIRONMENT', '').lower():
+    # Railway-specific paths
+    sys.path.extend(['/app', '/app/src', '.', './src'])
+else:
+    # Local development paths - ensure src directory is in path
+    sys.path.extend(['.', './src'])
+    # If we're running from src directory, add parent/src to path
+    if current_dir.endswith('/src'):
+        sys.path.insert(0, os.path.join(parent_dir, 'src'))
+
+print(f"🔍 Script location: {current_dir}")
+print(f"🔍 Python path setup: {sys.path[:6]}...")
 
 import time
 import logging
 from datetime import datetime, timedelta, timezone
-# from oanda_trader import OANDATrader
-# from forex_signal_generator import ForexSignalGenerator
-# from simple_technical_analyzer import SimpleTechnicalAnalyzer
 import schedule
 import json
 import numpy as np
@@ -23,6 +41,71 @@ from dataclasses import dataclass, asdict, field
 from typing import List, Dict, Optional, Tuple
 import threading
 from collections import defaultdict
+
+# Robust imports for Railway deployment - SINGLE IMPORT SECTION
+print(f"🔍 Debug: Current working directory: {os.getcwd()}")
+print(f"🔍 Debug: Python path: {sys.path}")
+print(f"🔍 Debug: Files in current directory: {os.listdir('.')}")
+if os.path.exists('src'):
+    print(f"🔍 Debug: Files in src directory: {os.listdir('src')}")
+
+print("🔄 Starting import process...")
+
+# Initialize variables
+OANDATrader = None
+ForexSignalGenerator = None
+SimpleTechnicalAnalyzer = None
+
+print("🔄 Attempting first import strategy...")
+try:
+    from oanda_trader import OANDATrader
+    from forex_signal_generator import ForexSignalGenerator
+    from simple_technical_analyzer import SimpleTechnicalAnalyzer
+    print("✅ Successfully imported modules using relative imports")
+except ImportError as e:
+    print(f"❌ Relative import error: {e}")
+    print("🔄 Attempting second import strategy...")
+    try:
+        # Try importing from src subdirectory
+        from src.oanda_trader import OANDATrader
+        from src.forex_signal_generator import ForexSignalGenerator
+        from src.simple_technical_analyzer import SimpleTechnicalAnalyzer
+        print("✅ Successfully imported modules using src. prefix")
+    except ImportError as e2:
+        print(f"❌ Src import error: {e2}")
+        print("🔄 Attempting final import strategy...")
+        # Last resort - add all possible paths
+        for path in ['.', './src', '/app', '/app/src']:
+            if path not in sys.path:
+                sys.path.append(path)
+        
+        try:
+            from oanda_trader import OANDATrader
+            from forex_signal_generator import ForexSignalGenerator
+            from simple_technical_analyzer import SimpleTechnicalAnalyzer
+            print("✅ Successfully imported modules after adding all paths")
+        except ImportError as e3:
+            print(f"❌ Final import error: {e3}")
+            print("🚨 Critical: Could not import required modules")
+            print(f"🔍 Current working directory: {os.getcwd()}")
+            print(f"🔍 Files in current directory: {os.listdir('.')}")
+            if os.path.exists('src'):
+                print(f"🔍 Files in src directory: {os.listdir('src')}")
+            raise ImportError(f"Failed to import required modules: {e3}")
+
+print("🔄 Verifying imports...")
+# CRITICAL: Verify imports worked before proceeding
+if OANDATrader is None or ForexSignalGenerator is None or SimpleTechnicalAnalyzer is None:
+    print("🚨 CRITICAL ERROR: One or more modules failed to import properly")
+    print(f"   - OANDATrader: {OANDATrader}")
+    print(f"   - ForexSignalGenerator: {ForexSignalGenerator}")
+    print(f"   - SimpleTechnicalAnalyzer: {SimpleTechnicalAnalyzer}")
+    raise ImportError("❌ Critical: One or more modules failed to import properly")
+else:
+    print(f"✅ All modules imported successfully:")
+    print(f"   - OANDATrader: {OANDATrader}")
+    print(f"   - ForexSignalGenerator: {ForexSignalGenerator}")
+    print(f"   - SimpleTechnicalAnalyzer: {SimpleTechnicalAnalyzer}")
 
 # Configure logging for Railway
 logging.basicConfig(
