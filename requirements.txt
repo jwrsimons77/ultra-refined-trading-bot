@@ -27,4 +27,4 @@ pytz==2023.3
 # collections (built into Python)
 
 # Environment variables (built into Python)
-python-dotenv==1.0.0 
+python-dotenv==1.0.0 textblob==0.17.1
