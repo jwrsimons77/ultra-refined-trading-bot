@@ -29,3 +29,4 @@ pytz==2023.3
 # Environment variables (built into Python)
 python-dotenv==1.0.0
 textblob==0.17.1
+ta==0.11.0
