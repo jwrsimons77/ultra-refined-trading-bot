@@ -264,23 +264,22 @@ class RailwayTradingBot:
         # More accurate pip value calculation
         if 'JPY' in pair:
             pip_value = 0.01  # For JPY pairs
-            typical_price = 150.0  # Typical USD/JPY price
         else:
             pip_value = 0.0001  # For other pairs
-            typical_price = 1.0  # Typical price around 1.0
         
-        # Use actual pip value in account currency (USD)
-        pip_value_usd = pip_value * typical_price
+        # Use standard pip value for 1000 units ($0.10 for major pairs)
+        pip_value_per_1000_units = 0.10
         
-        # Assume 20 pip stop loss
+        # Assume 20 pip stop loss (will be overridden by actual signal data)
         stop_loss_pips = 20
         
         # Calculate position size based on risk
-        position_size = int(risk_amount / (stop_loss_pips * pip_value_usd))
+        # Position size = Risk Amount / (Stop Loss Pips * Pip Value per 1000 units) * 1000
+        position_size = int((risk_amount / (stop_loss_pips * pip_value_per_1000_units)) * 1000)
         
-        # Conservative limits for $10k account
+        # Conservative limits for $10k account - UPDATED for fixed position sizing
         min_size = 1000      # Minimum 1k units (0.001 lots)
-        max_size = 10000     # Maximum 10k units (0.01 lots) - much more conservative
+        max_size = 5000      # Maximum 5k units (0.005 lots) - more conservative since sizing is fixed
         
         position_size = max(min_size, min(position_size, max_size))
         
@@ -288,7 +287,7 @@ class RailwayTradingBot:
         logger.info(f"📊 Position sizing for {pair}:")
         logger.info(f"   Risk amount: ${risk_amount:.2f}")
         logger.info(f"   Stop loss: {stop_loss_pips} pips")
-        logger.info(f"   Pip value: ${pip_value_usd:.6f}")
+        logger.info(f"   Pip value per 1000 units: ${pip_value_per_1000_units:.2f}")
         logger.info(f"   Calculated size: {position_size:,} units")
         logger.info(f"   Lot size: {position_size/100000:.3f} lots")
         

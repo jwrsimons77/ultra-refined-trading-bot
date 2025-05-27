@@ -217,9 +217,13 @@ class OANDATrader:
         else:
             stop_distance = abs(signal.stop_loss - signal.entry_price) / pip_value
         
-        # Calculate units based on risk
+        # Calculate units based on risk - FIXED: Removed incorrect "* 100"
+        # Pip value for 1000 units is approximately $0.10 for major pairs
+        pip_value_per_1000_units = 0.10
+        
         if stop_distance > 0:
-            base_units = int(risk_amount / (stop_distance * pip_value * 100))
+            # Position size = Risk Amount / (Stop Distance Pips * Pip Value per 1000 units) * 1000
+            base_units = int((risk_amount / (stop_distance * pip_value_per_1000_units)) * 1000)
         else:
             base_units = 1000  # Fallback minimum
         
@@ -228,6 +232,14 @@ class OANDATrader:
         max_units = 50000  # Maximum trade size for demo
         
         risk_based_units = max(min_units, min(base_units, max_units))
+        
+        # Log calculation details for debugging
+        logger.info(f"📊 Position size calculation for {signal.pair}:")
+        logger.info(f"   Risk amount: ${risk_amount:.2f}")
+        logger.info(f"   Stop distance: {stop_distance:.1f} pips")
+        logger.info(f"   Pip value per 1000 units: ${pip_value_per_1000_units:.2f}")
+        logger.info(f"   Calculated units: {base_units:,}")
+        logger.info(f"   Final units (after limits): {risk_based_units:,}")
         
         # Now check margin constraints
         margin_check = self.check_margin_availability(signal.pair, risk_based_units)
@@ -241,8 +253,11 @@ class OANDATrader:
         
         # Estimate units that would fit in available margin
         # This is approximate - we'll verify with actual margin calculation
-        estimated_margin_per_unit = margin_check['margin_required'] / risk_based_units
-        safe_units = int(effective_margin / estimated_margin_per_unit)
+        if margin_check['margin_required'] > 0:
+            estimated_margin_per_unit = margin_check['margin_required'] / risk_based_units
+            safe_units = int(effective_margin / estimated_margin_per_unit)
+        else:
+            safe_units = min_units
         
         # Ensure it's within our limits
         safe_units = max(min_units, min(safe_units, max_units))
