@@ -12,9 +12,9 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 import time
 import logging
 from datetime import datetime, timedelta, timezone
-# from oanda_trader import OANDATrader
-# from forex_signal_generator import ForexSignalGenerator
-# from simple_technical_analyzer import SimpleTechnicalAnalyzer
+from oanda_trader import OANDATrader
+from forex_signal_generator import ForexSignalGenerator
+from simple_technical_analyzer import SimpleTechnicalAnalyzer
 import schedule
 import json
 import numpy as np
