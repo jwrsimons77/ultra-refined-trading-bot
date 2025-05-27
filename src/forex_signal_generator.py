@@ -8,7 +8,7 @@ import requests
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
-import yfinance as yf
+# yfinance not needed - using OANDA API instead
 from textblob import TextBlob
 import random
 from dataclasses import dataclass
