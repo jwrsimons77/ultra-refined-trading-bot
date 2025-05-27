@@ -168,7 +168,7 @@ class RailwayTradingBot:
             logger.info(f"💰 Position size: {position_size:,} units")
             
             # Create TradeOrder object
-            from src.oanda_trader import TradeOrder
+            from oanda_trader import TradeOrder
             
             trade_order = TradeOrder(
                 pair=pair,
