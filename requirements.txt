@@ -1,0 +1,30 @@
+# Ultra-Refined Railway Trading Bot - Minimal Dependencies
+# Only the essential packages needed for the ultra-refined bot
+
+# Core OANDA API
+oandapyV20==0.6.3
+
+# Data manipulation and analysis
+pandas==2.0.3
+numpy==1.24.3
+
+# HTTP requests for API calls
+requests==2.31.0
+
+# Job scheduling
+schedule==1.2.0
+
+# Data classes and type hints (built into Python 3.7+)
+typing-extensions==4.7.1
+
+# Timezone handling
+pytz==2023.3
+
+# JSON handling (built into Python)
+# datetime (built into Python)
+# threading (built into Python)
+# logging (built into Python)
+# collections (built into Python)
+
+# Environment variables (built into Python)
+python-dotenv==1.0.0 
