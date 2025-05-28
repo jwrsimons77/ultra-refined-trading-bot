@@ -55,10 +55,11 @@ print("🔄 Starting import process...")
 OANDATrader = None
 ForexSignalGenerator = None
 SimpleTechnicalAnalyzer = None
+TradeOrder = None
 
 print("🔄 Attempting first import strategy...")
 try:
-    from oanda_trader import OANDATrader
+    from oanda_trader import OANDATrader, TradeOrder
     from forex_signal_generator import ForexSignalGenerator
     from simple_technical_analyzer import SimpleTechnicalAnalyzer
     print("✅ Successfully imported modules using relative imports")
@@ -67,7 +68,7 @@ except ImportError as e:
     print("🔄 Attempting second import strategy...")
     try:
         # Try importing from src subdirectory
-        from src.oanda_trader import OANDATrader
+        from src.oanda_trader import OANDATrader, TradeOrder
         from src.forex_signal_generator import ForexSignalGenerator
         from src.simple_technical_analyzer import SimpleTechnicalAnalyzer
         print("✅ Successfully imported modules using src. prefix")
@@ -80,7 +81,7 @@ except ImportError as e:
                 sys.path.append(path)
         
         try:
-            from oanda_trader import OANDATrader
+            from oanda_trader import OANDATrader, TradeOrder
             from forex_signal_generator import ForexSignalGenerator
             from simple_technical_analyzer import SimpleTechnicalAnalyzer
             print("✅ Successfully imported modules after adding all paths")
@@ -95,17 +96,19 @@ except ImportError as e:
 
 print("🔄 Verifying imports...")
 # CRITICAL: Verify imports worked before proceeding
-if OANDATrader is None or ForexSignalGenerator is None or SimpleTechnicalAnalyzer is None:
+if OANDATrader is None or ForexSignalGenerator is None or SimpleTechnicalAnalyzer is None or TradeOrder is None:
     print("🚨 CRITICAL ERROR: One or more modules failed to import properly")
     print(f"   - OANDATrader: {OANDATrader}")
     print(f"   - ForexSignalGenerator: {ForexSignalGenerator}")
     print(f"   - SimpleTechnicalAnalyzer: {SimpleTechnicalAnalyzer}")
+    print(f"   - TradeOrder: {TradeOrder}")
     raise ImportError("❌ Critical: One or more modules failed to import properly")
 else:
     print(f"✅ All modules imported successfully:")
     print(f"   - OANDATrader: {OANDATrader}")
     print(f"   - ForexSignalGenerator: {ForexSignalGenerator}")
     print(f"   - SimpleTechnicalAnalyzer: {SimpleTechnicalAnalyzer}")
+    print(f"   - TradeOrder: {TradeOrder}")
 
 # Configure logging for Railway
 logging.basicConfig(
@@ -369,24 +372,30 @@ class UltraRefinedRailwayTradingBot:
     def get_current_price(self, pair: str) -> Optional[float]:
         """Get current mid price for a pair."""
         instrument = pair.replace('/', '_')
-        price_info = self.trader.get_current_price(instrument)
-        if price_info and 'bid' in price_info and 'ask' in price_info:
-            return (price_info['bid'] + price_info['ask']) / 2
-        return None
+        price = self.trader.get_current_price(instrument)
+        # The OANDA trader returns a float (mid price), not a dict
+        return price
     
     def analyze_spread_conditions(self, pair: str) -> Dict:
         """Analyze current spread conditions before entry."""
         instrument = pair.replace('/', '_')
-        price_info = self.trader.get_current_price(instrument)
+        mid_price = self.trader.get_current_price(instrument)
         
-        if not price_info or 'bid' not in price_info or 'ask' not in price_info:
+        if not mid_price:
             return {'acceptable': False, 'reason': 'No price data'}
         
-        # Calculate current spread
-        bid = price_info['bid']
-        ask = price_info['ask']
-        pip_size = 0.01 if 'JPY' in pair else 0.0001
-        spread_pips = (ask - bid) / pip_size
+        # Since we only have mid price, estimate spread based on typical values
+        # These are conservative estimates for major pairs
+        typical_spreads = {
+            'EUR/USD': 1.5, 'GBP/USD': 2.0, 'USD/JPY': 1.5, 'USD/CHF': 2.0,
+            'AUD/USD': 2.0, 'USD/CAD': 2.5, 'NZD/USD': 3.0, 'EUR/GBP': 2.5,
+            'EUR/JPY': 2.5, 'GBP/JPY': 3.0, 'AUD/JPY': 3.0, 'CHF/JPY': 3.5,
+            'EUR/CHF': 3.0, 'GBP/CHF': 4.0, 'AUD/CHF': 4.0, 'EUR/AUD': 4.0,
+            'GBP/AUD': 5.0, 'EUR/CAD': 4.0, 'GBP/CAD': 5.0, 'AUD/CAD': 4.0
+        }
+        
+        # Estimate current spread (conservative approach)
+        estimated_spread_pips = typical_spreads.get(pair, 5.0)  # Default to 5 pips for unknown pairs
         
         # Get maximum acceptable spread
         max_spread = self.max_spreads.get(pair, 5.0)
@@ -395,15 +404,21 @@ class UltraRefinedRailwayTradingBot:
         if self.is_high_impact_news_time():
             max_spread *= 0.5
         
-        acceptable = spread_pips <= max_spread
+        acceptable = estimated_spread_pips <= max_spread
+        
+        # Estimate bid/ask from mid price
+        pip_size = 0.01 if 'JPY' in pair else 0.0001
+        half_spread = (estimated_spread_pips * pip_size) / 2
+        estimated_bid = mid_price - half_spread
+        estimated_ask = mid_price + half_spread
         
         return {
             'acceptable': acceptable,
-            'current_spread': spread_pips,
+            'current_spread': estimated_spread_pips,
             'max_spread': max_spread,
-            'bid': bid,
-            'ask': ask,
-            'reason': f"Spread {spread_pips:.1f} pips ({'OK' if acceptable else 'TOO HIGH'})"
+            'bid': estimated_bid,
+            'ask': estimated_ask,
+            'reason': f"Estimated spread {estimated_spread_pips:.1f} pips ({'OK' if acceptable else 'TOO HIGH'})"
         }
     
     def is_high_impact_news_time(self, minutes_before: int = 30, minutes_after: int = 30) -> bool:
@@ -596,7 +611,17 @@ class UltraRefinedRailwayTradingBot:
             open_positions = self.trader.get_open_positions()
             current_time = datetime.now()
             
+            # Ensure open_positions is a list
+            if not isinstance(open_positions, list):
+                logger.warning(f"⚠️ Expected list for open_positions in time-based exits, got {type(open_positions)}: {open_positions}")
+                return
+            
             for position in open_positions:
+                # Ensure position is a dictionary
+                if not isinstance(position, dict):
+                    logger.warning(f"⚠️ Expected dict for position in time-based exits, got {type(position)}: {position}")
+                    continue
+                    
                 # Get trade record
                 trade_ids = position.get('tradeIDs', [])
                 
@@ -643,7 +668,7 @@ class UltraRefinedRailwayTradingBot:
                 
                 if should_close:
                     logger.info(f"⏰ Time-based exit triggered: {reason}")
-                    instrument = position['instrument']
+                    instrument = position.get('instrument')
                     
                     # Ensure instrument is a string before processing
                     if not isinstance(instrument, str):
@@ -666,18 +691,30 @@ class UltraRefinedRailwayTradingBot:
                 
         except Exception as e:
             logger.error(f"❌ Error in time-based exit monitoring: {e}")
+            import traceback
+            logger.error(f"❌ Traceback: {traceback.format_exc()}")
     
     def update_trailing_stops(self):
         """Update trailing stops for profitable positions."""
         try:
             open_positions = self.trader.get_open_positions()
             
+            # Ensure open_positions is a list
+            if not isinstance(open_positions, list):
+                logger.warning(f"⚠️ Expected list for open_positions in trailing stops, got {type(open_positions)}: {open_positions}")
+                return
+            
             for position in open_positions:
+                # Ensure position is a dictionary
+                if not isinstance(position, dict):
+                    logger.warning(f"⚠️ Expected dict for position in trailing stops, got {type(position)}: {position}")
+                    continue
+                    
                 unrealized_pl = position.get('unrealizedPL', 0)
                 if unrealized_pl <= 0:
                     continue  # Only trail profitable positions
                 
-                instrument = position['instrument']
+                instrument = position.get('instrument')
                 # Ensure instrument is a string before processing
                 if not isinstance(instrument, str):
                     logger.warning(f"⚠️ Invalid instrument type: {type(instrument)} - {instrument}")
@@ -686,7 +723,7 @@ class UltraRefinedRailwayTradingBot:
                 pair = instrument.replace('_', '/')
                 current_price = self.get_current_price(pair)
                 
-                if not current_price:
+                if not current_price or not isinstance(current_price, (int, float)):
                     continue
                 
                 # Get trade record
@@ -749,6 +786,8 @@ class UltraRefinedRailwayTradingBot:
                 
         except Exception as e:
             logger.error(f"❌ Error updating trailing stops: {e}")
+            import traceback
+            logger.error(f"❌ Traceback: {traceback.format_exc()}")
     
     def execute_partial_close(self, position: Dict, percentage: int = 50, reason: str = ""):
         """Close a percentage of a position."""
@@ -776,16 +815,23 @@ class UltraRefinedRailwayTradingBot:
                 units = units_to_close
             
             # Place the order
-            order_data = {
-                'pair': pair,
-                'signal_type': signal_type,
-                'units': units,
-                'entry_price': self.get_current_price(pair),
-                'confidence': 1.0,
-                'risk_amount': 0  # No risk for closing
-            }
+            current_price = self.get_current_price(pair)
+            if not current_price:
+                logger.error(f"❌ Could not get current price for {pair}")
+                return False
+                
+            trade_order = TradeOrder(
+                pair=pair,
+                signal_type=signal_type,
+                entry_price=current_price,
+                target_price=current_price,  # For closing, target = current price
+                stop_loss=current_price,     # For closing, stop = current price
+                confidence=1.0,
+                units=units,
+                risk_amount=0  # No risk for closing
+            )
             
-            order_id = self.trader.place_market_order(order_data)
+            order_id = self.trader.place_market_order(trade_order)
             
             if order_id:
                 logger.info(f"✂️ Partial close executed: {percentage}% of {pair} position. Reason: {reason}")
@@ -832,7 +878,19 @@ class UltraRefinedRailwayTradingBot:
             
             # Check current open positions
             open_positions = self.trader.get_open_positions()
-            current_pairs = [pos['instrument'].replace('_', '/') for pos in open_positions]
+            
+            # Ensure open_positions is a list and handle safely
+            if not isinstance(open_positions, list):
+                logger.warning(f"⚠️ Expected list for open_positions in signal scan, got {type(open_positions)}: {open_positions}")
+                open_positions = []
+            
+            # Safely extract current pairs
+            current_pairs = []
+            for pos in open_positions:
+                if isinstance(pos, dict) and 'instrument' in pos:
+                    instrument = pos['instrument']
+                    if isinstance(instrument, str):
+                        current_pairs.append(instrument.replace('_', '/'))
             
             if len(open_positions) >= self.max_concurrent_trades:
                 logger.info(f"📊 Max concurrent trades reached: {len(open_positions)}/{self.max_concurrent_trades}")
@@ -931,18 +989,18 @@ class UltraRefinedRailwayTradingBot:
                 return None
             
             # Execute the trade
-            order_data = {
-                'pair': pair,
-                'signal_type': action,
-                'entry_price': entry_price,
-                'target_price': signal.target_price,
-                'stop_loss': stop_loss,
-                'confidence': confidence,
-                'units': position_size if action == "BUY" else -position_size,
-                'risk_amount': account_balance * self.base_risk_per_trade
-            }
+            trade_order = TradeOrder(
+                pair=pair,
+                signal_type=action,
+                entry_price=entry_price,
+                target_price=signal.target_price,
+                stop_loss=stop_loss,
+                confidence=confidence,
+                units=position_size if action == "BUY" else -position_size,
+                risk_amount=account_balance * self.base_risk_per_trade
+            )
             
-            order_id = self.trader.place_market_order(order_data)
+            order_id = self.trader.place_market_order(trade_order)
             
             if order_id:
                 # Calculate expected profit/loss
@@ -1002,8 +1060,18 @@ class UltraRefinedRailwayTradingBot:
                 # Update MAE/MFE for open trades
                 open_positions = self.trader.get_open_positions()
                 
+                # Ensure open_positions is a list
+                if not isinstance(open_positions, list):
+                    logger.warning(f"⚠️ Expected list for open_positions, got {type(open_positions)}: {open_positions}")
+                    open_positions = []
+                
                 for position in open_positions:
-                    instrument = position['instrument']
+                    # Ensure position is a dictionary
+                    if not isinstance(position, dict):
+                        logger.warning(f"⚠️ Expected dict for position, got {type(position)}: {position}")
+                        continue
+                        
+                    instrument = position.get('instrument')
                     # Ensure instrument is a string before processing
                     if not isinstance(instrument, str):
                         logger.warning(f"⚠️ Invalid instrument type in monitoring: {type(instrument)} - {instrument}")
@@ -1012,7 +1080,7 @@ class UltraRefinedRailwayTradingBot:
                     pair = instrument.replace('_', '/')
                     current_price = self.get_current_price(pair)
                     
-                    if current_price:
+                    if current_price and isinstance(current_price, (int, float)):
                         trade_ids = position.get('tradeIDs', [])
                         
                         # Handle case where tradeIDs might be a single value instead of a list
@@ -1035,6 +1103,8 @@ class UltraRefinedRailwayTradingBot:
                 
             except Exception as e:
                 logger.error(f"❌ Error in monitoring loop: {e}")
+                import traceback
+                logger.error(f"❌ Traceback: {traceback.format_exc()}")
                 time.sleep(60)  # Wait longer on error
     
     def ultra_refined_trading_session(self):
