@@ -383,7 +383,8 @@ class ForexSignalGenerator:
 
     def calculate_pip_value(self, pair: str, price: float) -> float:
         """Calculate pip value for the pair."""
-        if 'JPY' in pair:
+        # Ensure pair is a string before doing JPY check
+        if isinstance(pair, str) and 'JPY' in pair:
             return 0.01  # JPY pairs use 0.01 as pip
         else:
             return 0.0001  # Most pairs use 0.0001 as pip

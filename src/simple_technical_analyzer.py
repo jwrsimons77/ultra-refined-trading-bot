@@ -466,7 +466,7 @@ class SimpleTechnicalAnalyzer:
                 target = entry_price - target_distance
             
             # Calculate pip values for display
-            if 'JPY' in pair:
+            if isinstance(pair, str) and 'JPY' in pair:
                 pip_value = 0.01
             else:
                 pip_value = 0.0001
@@ -534,7 +534,7 @@ class SimpleTechnicalAnalyzer:
             avg_hourly_movement = df['price_change'].mean()
             
             # Calculate pip value
-            if 'JPY' in pair:
+            if isinstance(pair, str) and 'JPY' in pair:
                 pip_value = 0.01
             else:
                 pip_value = 0.0001

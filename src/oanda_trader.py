@@ -206,7 +206,7 @@ class OANDATrader:
         risk_amount = account_summary['balance'] * self.max_risk_per_trade
         
         # Calculate pip value and distance to stop loss
-        if 'JPY' in signal.pair:
+        if isinstance(signal.pair, str) and 'JPY' in signal.pair:
             pip_value = 0.01
         else:
             pip_value = 0.0001
@@ -395,7 +395,7 @@ class OANDATrader:
             units = trade_order.units if trade_order.signal_type == "BUY" else -trade_order.units
             
             # Format prices with correct precision for the instrument
-            if 'JPY' in instrument:
+            if isinstance(instrument, str) and 'JPY' in instrument:
                 # JPY pairs use 3 decimal places
                 entry_price = f"{trade_order.entry_price:.3f}"
                 target_price = f"{trade_order.target_price:.3f}"
