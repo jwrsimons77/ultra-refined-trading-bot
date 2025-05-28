@@ -542,7 +542,9 @@ class UltraRefinedRailwayTradingBot:
             target_price = signal['target_price']
             stop_loss = signal['stop_loss']
             
-            pip_size = 0.01 if 'JPY' in signal['pair'] else 0.0001
+            # Ensure pair is string before JPY check
+            pair = signal['pair']
+            pip_size = 0.01 if isinstance(pair, str) and 'JPY' in pair else 0.0001
             
             if signal['signal_type'] == 'BUY':
                 reward_pips = (target_price - entry_price) / pip_size
@@ -643,6 +645,11 @@ class UltraRefinedRailwayTradingBot:
                     logger.info(f"⏰ Time-based exit triggered: {reason}")
                     instrument = position['instrument']
                     
+                    # Ensure instrument is a string before processing
+                    if not isinstance(instrument, str):
+                        logger.warning(f"⚠️ Invalid instrument type in time-based exit: {type(instrument)} - {instrument}")
+                        continue
+                    
                     # Close the position
                     close_result = self.trader.close_position(instrument)
                     
@@ -671,6 +678,11 @@ class UltraRefinedRailwayTradingBot:
                     continue  # Only trail profitable positions
                 
                 instrument = position['instrument']
+                # Ensure instrument is a string before processing
+                if not isinstance(instrument, str):
+                    logger.warning(f"⚠️ Invalid instrument type: {type(instrument)} - {instrument}")
+                    continue
+                    
                 pair = instrument.replace('_', '/')
                 current_price = self.get_current_price(pair)
                 
@@ -693,8 +705,8 @@ class UltraRefinedRailwayTradingBot:
                 if not trade_record:
                     continue
                 
-                # Calculate profit in pips
-                pip_size = 0.01 if 'JPY' in pair else 0.0001
+                # Calculate profit in pips - ensure pair is string
+                pip_size = 0.01 if isinstance(pair, str) and 'JPY' in pair else 0.0001
                 units = position.get('currentUnits', position.get('units', 0))
                 
                 if units > 0:  # Long
@@ -749,6 +761,11 @@ class UltraRefinedRailwayTradingBot:
             
             # Execute partial close
             instrument = position['instrument']
+            # Ensure instrument is a string before processing
+            if not isinstance(instrument, str):
+                logger.warning(f"⚠️ Invalid instrument type in partial close: {type(instrument)} - {instrument}")
+                return False
+                
             pair = instrument.replace('_', '/')
             
             if current_units > 0:  # Long position
@@ -897,7 +914,7 @@ class UltraRefinedRailwayTradingBot:
             # Calculate stop distance in pips
             entry_price = signal.entry_price
             stop_loss = signal.stop_loss
-            pip_size = 0.01 if 'JPY' in pair else 0.0001
+            pip_size = 0.01 if isinstance(pair, str) and 'JPY' in pair else 0.0001
             
             if action == "BUY":
                 stop_distance_pips = (entry_price - stop_loss) / pip_size
@@ -987,6 +1004,11 @@ class UltraRefinedRailwayTradingBot:
                 
                 for position in open_positions:
                     instrument = position['instrument']
+                    # Ensure instrument is a string before processing
+                    if not isinstance(instrument, str):
+                        logger.warning(f"⚠️ Invalid instrument type in monitoring: {type(instrument)} - {instrument}")
+                        continue
+                        
                     pair = instrument.replace('_', '/')
                     current_price = self.get_current_price(pair)
                     
