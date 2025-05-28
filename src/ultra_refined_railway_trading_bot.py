@@ -466,7 +466,7 @@ class UltraRefinedRailwayTradingBot:
                 
                 for position in open_positions:
                     pair = position['instrument'].replace('_', '/')
-                    direction = 'BUY' if position.get('currentUnits', position.get('units', 0)) > 0 else 'SELL'
+                    direction = 'BUY' if float(position.get('currentUnits', position.get('units', 0))) > 0 else 'SELL'
                     
                     if pair in group_pairs:
                         group_exposure += 1
@@ -656,12 +656,12 @@ class UltraRefinedRailwayTradingBot:
                     reason = "Weekend risk reduction"
                 
                 # 3. Check if trade is stagnant
-                elif position.get('unrealizedPL', 0) == 0 and hold_time.total_seconds() / 3600 > 48:
+                elif float(position.get('unrealizedPL', 0)) == 0 and hold_time.total_seconds() / 3600 > 48:
                     should_close = True
                     reason = "Trade stagnant for 48 hours"
                 
                 # 4. Time-based profit taking
-                elif hold_time.total_seconds() / 3600 > 24 and position.get('unrealizedPL', 0) > 20:
+                elif hold_time.total_seconds() / 3600 > 24 and float(position.get('unrealizedPL', 0)) > 20:
                     # Partial close for profitable trades
                     self.execute_partial_close(position, percentage=50, reason="Time-based profit taking")
                     continue
@@ -710,7 +710,7 @@ class UltraRefinedRailwayTradingBot:
                     logger.warning(f"⚠️ Expected dict for position in trailing stops, got {type(position)}: {position}")
                     continue
                     
-                unrealized_pl = position.get('unrealizedPL', 0)
+                unrealized_pl = float(position.get('unrealizedPL', 0))
                 if unrealized_pl <= 0:
                     continue  # Only trail profitable positions
                 
@@ -744,7 +744,7 @@ class UltraRefinedRailwayTradingBot:
                 
                 # Calculate profit in pips - ensure pair is string
                 pip_size = 0.01 if isinstance(pair, str) and 'JPY' in pair else 0.0001
-                units = position.get('currentUnits', position.get('units', 0))
+                units = float(position.get('currentUnits', position.get('units', 0)))
                 
                 if units > 0:  # Long
                     profit_pips = (current_price - trade_record.entry_price) / pip_size
@@ -792,7 +792,7 @@ class UltraRefinedRailwayTradingBot:
     def execute_partial_close(self, position: Dict, percentage: int = 50, reason: str = ""):
         """Close a percentage of a position."""
         try:
-            current_units = position.get('currentUnits', position.get('units', 0))
+            current_units = float(position.get('currentUnits', position.get('units', 0)))
             units_to_close = int(abs(current_units) * (percentage / 100))
             
             if units_to_close < 1000:  # Minimum trade size
