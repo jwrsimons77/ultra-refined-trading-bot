@@ -1,0 +1,136 @@
+# Sniper Bot Configuration File
+# Customize these settings to adjust bot behavior
+
+# Portfolio Settings
+portfolio:
+  initial_capital: 1000.0      # Starting capital in USD
+  max_daily_trades: 3          # Maximum trades per day
+  position_size_pct: 10.0      # Percentage of capital per trade
+
+# Trading Parameters
+trading:
+  confidence_threshold: 0.6    # Minimum confidence score to trade (0.0-1.0)
+  max_holding_days: 5          # Maximum days to hold a position
+  
+  # Risk Management
+  stop_loss_pct: 3.0          # Stop loss percentage for long positions
+  take_profit_pct: 5.0        # Take profit percentage base
+  volatility_multiplier: 2.0   # Volatility adjustment factor
+
+# Sentiment Analysis
+sentiment:
+  use_finbert: true           # Use FinBERT (finance-specific) model
+  fallback_to_textblob: true  # Fallback to TextBlob if FinBERT fails
+  
+  # Event Type Weights (higher = more important)
+  event_weights:
+    earnings: 2.0
+    merger: 2.0
+    acquisition: 2.0
+    product_launch: 2.0
+    executive: 1.5
+    partnership: 1.3
+    default: 1.0
+  
+  # Source Credibility Weights
+  source_weights:
+    bloomberg: 1.5
+    wsj: 1.5
+    wall_street_journal: 1.5
+    reuters: 1.4
+    cnbc: 1.3
+    marketwatch: 1.2
+    yahoo_finance: 1.1
+    default: 1.0
+
+# Data Processing
+data:
+  # Event-driven keywords for filtering news
+  event_keywords:
+    earnings:
+      - earnings
+      - quarterly results
+      - q1
+      - q2
+      - q3
+      - q4
+      - revenue
+      - profit
+      - eps
+      - earnings per share
+      - beat estimates
+      - miss estimates
+    
+    mergers_acquisitions:
+      - merger
+      - acquisition
+      - acquire
+      - merge
+      - takeover
+      - buyout
+      - deal
+      - purchase
+      - bought
+      - sold to
+    
+    product_launches:
+      - launch
+      - unveil
+      - announce
+      - release
+      - debut
+      - introduce
+      - new product
+      - product line
+    
+    executive_changes:
+      - ceo
+      - cfo
+      - coo
+      - president
+      - executive
+      - resign
+      - retire
+      - appoint
+      - hire
+      - step down
+      - leadership change
+    
+    partnerships:
+      - partnership
+      - collaborate
+      - joint venture
+      - alliance
+
+# Backtesting
+backtesting:
+  start_date: "2023-01-01"    # Default backtest start date
+  end_date: "2023-12-31"      # Default backtest end date
+  
+  # Performance metrics to calculate
+  metrics:
+    - total_return
+    - win_rate
+    - sharpe_ratio
+    - max_drawdown
+    - avg_return_per_trade
+    - volatility
+
+# Output Settings
+output:
+  save_results: true          # Save results to CSV
+  save_plots: true           # Save performance plots
+  results_dir: "outputs"     # Directory for saving results
+  
+  # Plot settings
+  plot_settings:
+    figure_size: [15, 12]
+    dpi: 300
+    style: "seaborn"
+
+# Logging
+logging:
+  level: "INFO"              # DEBUG, INFO, WARNING, ERROR
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  save_to_file: true
+  log_file: "outputs/sniper_bot.log" 
