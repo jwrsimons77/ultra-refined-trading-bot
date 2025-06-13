@@ -298,37 +298,46 @@ class UltraRefinedRailwayTradingBot:
         self.technical_analyzer = SimpleTechnicalAnalyzer()
         self.performance_tracker = AdvancedPerformanceTracker()
         
-        # OPTIMIZED TRADING PARAMETERS
-        self.pairs = ['EUR/USD', 'GBP/USD', 'USD/JPY', 'AUD/USD', 'USD/CAD']
-        self.min_confidence = 0.55
-        self.base_risk_per_trade = 0.015  # 1.5% risk per trade
-        self.max_concurrent_trades = 6
-        self.max_daily_trades = 8
-        self.min_risk_reward_ratio = 2.0
-        self.max_hold_days = 5
+        # PROFIT-OPTIMIZED TRADING PARAMETERS (Based on Analysis)
+        # DISABLED LOSING PAIRS: EUR/USD (-$93), AUD/USD (-$99), NZD/USD (-$122)
+        # FOCUS ON WINNERS: USD/CAD (+$331), USD/CHF (+$236)
+        self.pairs = ['USD/CAD', 'USD/CHF']  # Only profitable pairs
+        self.allowed_directions = ['BUY']  # Only profitable direction (+$216 vs -$83 for SELL)
+        
+        # Tightened parameters for better win rate (currently 10.2%)
+        self.min_confidence = 0.65  # Increased from 0.55 to improve win rate
+        self.base_risk_per_trade = 0.02  # Slightly increased for winners (was 0.015)
+        self.max_concurrent_trades = 4  # Reduced for focus
+        self.max_daily_trades = 6  # Reduced for quality over quantity
+        self.min_risk_reward_ratio = 2.5  # Increased from 2.0
+        self.max_hold_days = 3  # Reduced for faster turnover
         
         # Enhanced risk management
-        self.max_daily_loss = 0.05  # 5% max daily loss
-        self.max_portfolio_risk = 0.08  # 8% max portfolio risk
-        self.min_stop_distance_pips = 20  # Minimum 20 pips stop
+        self.max_daily_loss = 0.03  # Tighter daily loss limit (was 0.05)
+        self.max_portfolio_risk = 0.06  # Reduced portfolio risk (was 0.08)
+        self.min_stop_distance_pips = 25  # Increased minimum stop (was 20)
         
-        # Spread limits by pair
+        # Focus only on profitable pairs
         self.max_spreads = {
-            'EUR/USD': 2.0,
-            'GBP/USD': 3.0,
-            'USD/JPY': 2.0,
-            'AUD/USD': 3.0,
-            'USD/CAD': 3.5,
-            'USD/CHF': 3.0,
-            'NZD/USD': 4.0
+            'USD/CAD': 3.0,  # Slightly tighter
+            'USD/CHF': 2.5,  # Slightly tighter
         }
         
-        # Correlation groups for risk management
+        # Simplified correlation groups (focused strategy)
         self.correlation_groups = {
-            'USD_STRONG': ['EUR/USD', 'GBP/USD', 'AUD/USD', 'NZD/USD'],
-            'USD_WEAK': ['USD/JPY', 'USD/CHF', 'USD/CAD'],
-            'COMMODITY': ['AUD/USD', 'NZD/USD', 'USD/CAD'],
-            'SAFE_HAVEN': ['USD/JPY', 'USD/CHF']
+            'USD_STRENGTH': ['USD/CAD', 'USD/CHF'],  # Our focus pairs
+        }
+        
+        # Enhanced tracking for debugging sync issues
+        self.trade_id_map = {}  # Map our internal IDs to OANDA IDs
+        self.sync_debug_log = []  # Track sync issues
+        
+        # Performance tracking for optimization
+        self.session_stats = {
+            'trades_today': 0,
+            'wins_today': 0,
+            'pnl_today': 0.0,
+            'win_rate_today': 0.0
         }
         
         # News event times (UTC)
@@ -353,21 +362,69 @@ class UltraRefinedRailwayTradingBot:
         self.monitoring_thread = None
         self.stop_monitoring = False
         
-        logger.info("🚀 ULTRA-REFINED RAILWAY BOT INITIALIZED")
-        logger.info(f"   📊 Pairs: {', '.join(self.pairs)}")
-        logger.info(f"   🎯 Min Confidence: {self.min_confidence:.1%}")
+        logger.info("🚀 PROFIT-OPTIMIZED RAILWAY BOT INITIALIZED")
+        logger.info("=" * 60)
+        logger.info("🎯 PROFIT-FOCUSED STRATEGY ACTIVE")
+        logger.info(f"   📊 Pairs: {', '.join(self.pairs)} (WINNERS ONLY)")
+        logger.info(f"   🎯 Directions: {', '.join(self.allowed_directions)} (PROFITABLE ONLY)")
+        logger.info(f"   🔥 Min Confidence: {self.min_confidence:.1%} (INCREASED)")
         logger.info(f"   💰 Base Risk per Trade: {self.base_risk_per_trade:.1%}")
-        logger.info(f"   🔢 Max Concurrent Trades: {self.max_concurrent_trades}")
-        logger.info(f"   ⚖️  Min Risk/Reward: {self.min_risk_reward_ratio:.1f}")
+        logger.info(f"   🔢 Max Concurrent Trades: {self.max_concurrent_trades} (FOCUSED)")
+        logger.info(f"   ⚖️  Min Risk/Reward: {self.min_risk_reward_ratio:.1f} (INCREASED)")
+        logger.info("📈 DISABLED LOSING STRATEGIES:")
+        logger.info("   ❌ EUR/USD (-$93.25), AUD/USD (-$99.24), NZD/USD (-$122.61)")
+        logger.info("   ❌ SELL signals (-$83.40 total)")
+        logger.info("✅ ENABLED WINNING STRATEGIES:")
+        logger.info("   ✅ USD/CAD (+$331.63), USD/CHF (+$236.07)")
+        logger.info("   ✅ BUY signals (+$216.76 total)")
+        logger.info("🎯 TARGET: Improve 10.2% → 25%+ win rate")
+        logger.info("=" * 60)
         
     def reset_daily_counters(self):
         """Reset daily trading counters."""
         current_date = datetime.now().date()
         if current_date != self.last_reset_date:
             logger.info(f"📅 Daily reset: {self.daily_trades} trades, ${self.daily_pnl:.2f} P&L")
+            logger.info(f"📊 Session stats: {self.session_stats['wins_today']}/{self.session_stats['trades_today']} wins ({self.session_stats['win_rate_today']:.1%})")
+            
+            # Reset counters
             self.daily_trades = 0
             self.daily_pnl = 0.0
+            self.session_stats = {
+                'trades_today': 0,
+                'wins_today': 0,
+                'pnl_today': 0.0,
+                'win_rate_today': 0.0
+            }
             self.last_reset_date = current_date
+    
+    def update_session_stats(self, trade_result: str, pnl: float = 0.0):
+        """Update daily session statistics for profit optimization."""
+        if trade_result in ['WIN', 'PROFIT']:
+            self.session_stats['wins_today'] += 1
+        
+        self.session_stats['pnl_today'] += pnl
+        
+        # Calculate win rate
+        if self.session_stats['trades_today'] > 0:
+            self.session_stats['win_rate_today'] = self.session_stats['wins_today'] / self.session_stats['trades_today']
+        
+        logger.info(f"📊 SESSION UPDATE: {self.session_stats['wins_today']}/{self.session_stats['trades_today']} wins ({self.session_stats['win_rate_today']:.1%}) | P&L: ${self.session_stats['pnl_today']:.2f}")
+    
+    def log_sync_debug_info(self):
+        """Log sync tracking information for debugging."""
+        logger.info("🔄 SYNC DEBUG INFO:")
+        logger.info(f"   📊 Trade ID mappings: {len(self.trade_id_map)}")
+        logger.info(f"   📋 Sync debug entries: {len(self.sync_debug_log)}")
+        
+        # Log recent sync entries
+        recent_syncs = self.sync_debug_log[-5:] if len(self.sync_debug_log) >= 5 else self.sync_debug_log
+        for sync in recent_syncs:
+            logger.info(f"   🔗 {sync['internal_id']} → {sync['oanda_id']} ({sync['pair']} {sync['action']})")
+        
+        # Check for any obvious sync issues
+        if len(self.trade_id_map) != len(self.sync_debug_log):
+            logger.warning(f"⚠️ SYNC MISMATCH: {len(self.trade_id_map)} mappings vs {len(self.sync_debug_log)} debug entries")
     
     def get_current_price(self, pair: str) -> Optional[float]:
         """Get current mid price for a pair."""
@@ -541,23 +598,30 @@ class UltraRefinedRailwayTradingBot:
         return position_size
     
     def enhanced_signal_filtering(self, signal: dict) -> Tuple[bool, str]:
-        """Enhanced signal filtering with detailed rejection reasons."""
+        """Enhanced signal filtering with profit-focused criteria."""
         try:
-            # 1. Basic confidence check
-            if signal['confidence'] < self.min_confidence:
-                return False, f"Low confidence {signal['confidence']:.1%}"
+            # 0. PROFIT-FOCUSED: Only BUY signals (BUY: +$216 vs SELL: -$83)
+            if signal['signal_type'] not in self.allowed_directions:
+                return False, f"Direction not allowed: {signal['signal_type']} (only {self.allowed_directions})"
             
-            # 2. Check spread conditions
+            # 1. Basic confidence check (increased threshold)
+            if signal['confidence'] < self.min_confidence:
+                return False, f"Low confidence {signal['confidence']:.1%} (need {self.min_confidence:.1%}+)"
+            
+            # 2. Pair whitelist check (only profitable pairs)
+            if signal['pair'] not in self.pairs:
+                return False, f"Pair not in whitelist: {signal['pair']} (only {self.pairs})"
+            
+            # 3. Check spread conditions
             spread_check = self.analyze_spread_conditions(signal['pair'])
             if not spread_check['acceptable']:
                 return False, spread_check['reason']
             
-            # 3. Check risk/reward ratio
+            # 4. Check risk/reward ratio (increased threshold)
             entry_price = signal['entry_price']
             target_price = signal['target_price']
             stop_loss = signal['stop_loss']
             
-            # Ensure pair is string before JPY check
             pair = signal['pair']
             pip_size = 0.01 if isinstance(pair, str) and 'JPY' in pair else 0.0001
             
@@ -571,38 +635,42 @@ class UltraRefinedRailwayTradingBot:
             risk_reward_ratio = reward_pips / risk_pips if risk_pips > 0 else 0
             
             if risk_reward_ratio < self.min_risk_reward_ratio:
-                return False, f"Poor R/R ratio {risk_reward_ratio:.2f}"
+                return False, f"Poor R/R ratio {risk_reward_ratio:.2f} (need {self.min_risk_reward_ratio:.2f}+)"
             
-            # 4. Check minimum stop distance
+            # 5. Check minimum stop distance (increased)
             if risk_pips < self.min_stop_distance_pips:
-                return False, f"Stop too tight {risk_pips:.1f} pips"
+                return False, f"Stop too tight {risk_pips:.1f} pips (need {self.min_stop_distance_pips}+)"
             
-            # 5. Check trading session
+            # 6. Check trading session
             if not self.is_good_trading_session():
                 return False, "Poor trading session"
             
-            # 6. Check news events
+            # 7. Check news events
             if self.is_high_impact_news_time():
                 return False, "High-impact news window"
             
-            # 7. Check correlation risk
+            # 8. Check correlation risk (simplified for focused strategy)
             if not self.check_correlation_risk(signal['pair'], signal['signal_type']):
                 return False, "Correlation risk too high"
             
-            # 8. Check if we should reduce risk due to recent losses
-            if self.performance_tracker.should_reduce_risk() and signal['confidence'] < 0.65:
+            # 9. Check daily performance (stop if losing streak)
+            if self.session_stats['win_rate_today'] < 0.15 and self.session_stats['trades_today'] >= 3:
+                return False, f"Low win rate today {self.session_stats['win_rate_today']:.1%}"
+            
+            # 10. Quality check for focused strategy
+            if signal['confidence'] < 0.75 and self.performance_tracker.should_reduce_risk():
                 return False, "Recent losses + moderate confidence"
             
-            logger.info(f"✅ Signal passed all filters:")
-            logger.info(f"   Confidence: {signal['confidence']:.1%}")
-            logger.info(f"   Risk/Reward: {risk_reward_ratio:.2f}")
-            logger.info(f"   Stop distance: {risk_pips:.1f} pips")
-            logger.info(f"   Spread: {spread_check['current_spread']:.1f} pips")
+            logger.info(f"✅ PROFIT-FOCUSED SIGNAL PASSED ALL FILTERS:")
+            logger.info(f"   📊 {signal['pair']} {signal['signal_type']} | Confidence: {signal['confidence']:.1%}")
+            logger.info(f"   🎯 Risk/Reward: {risk_reward_ratio:.2f} | Stop: {risk_pips:.1f} pips")
+            logger.info(f"   📈 Spread: {spread_check['current_spread']:.1f} pips")
+            logger.info(f"   🏆 Focus Strategy: USD strength BUY only")
             
-            return True, "All checks passed"
+            return True, "All profit-focused checks passed"
             
         except Exception as e:
-            logger.error(f"❌ Error in signal filtering: {e}")
+            logger.error(f"❌ Error in profit-focused signal filtering: {e}")
             return False, f"Filter error: {str(e)}"
     
     def monitor_time_based_exits(self):
@@ -934,7 +1002,7 @@ class UltraRefinedRailwayTradingBot:
             logger.error(f"❌ Error in signal scanning: {e}")
     
     def execute_ultra_refined_trade(self, signal, account_balance: float):
-        """Execute trade with all improvements implemented."""
+        """Execute trade with profit-focused improvements and enhanced tracking."""
         try:
             # Access ForexSignal object attributes directly
             pair = signal.pair
@@ -959,10 +1027,10 @@ class UltraRefinedRailwayTradingBot:
                 'atr': signal.atr
             }
             
-            # Enhanced signal filtering
+            # Profit-focused signal filtering
             passed, rejection_reason = self.enhanced_signal_filtering(signal_dict)
             if not passed:
-                logger.info(f"❌ Signal rejected: {rejection_reason}")
+                logger.info(f"❌ PROFIT-FOCUSED REJECTION: {rejection_reason}")
                 return None
             
             # Check daily limits
@@ -979,8 +1047,13 @@ class UltraRefinedRailwayTradingBot:
             else:
                 stop_distance_pips = (stop_loss - entry_price) / pip_size
             
-            # Calculate position size with accurate pip values
+            # Calculate position size with profit-focused adjustments
             position_size = self.calculate_dynamic_position_size(account_balance, pair, stop_distance_pips)
+            
+            # Increase position size for our winning pairs
+            if pair in ['USD/CAD', 'USD/CHF'] and confidence >= 0.75:
+                position_size = int(position_size * 1.2)  # 20% larger for high-confidence winners
+                logger.info(f"💰 WINNER BONUS: Increased position size by 20% for {pair}")
             
             # Check margin availability
             margin_check = self.trader.check_margin_availability(pair, position_size)
@@ -1003,6 +1076,10 @@ class UltraRefinedRailwayTradingBot:
             order_id = self.trader.place_market_order(trade_order)
             
             if order_id:
+                # Enhanced sync tracking
+                internal_trade_id = f"{pair}_{action}_{int(datetime.now().timestamp())}"
+                self.trade_id_map[internal_trade_id] = order_id
+                
                 # Calculate expected profit/loss
                 pip_value = self.calculate_accurate_pip_value(pair, position_size)
                 
@@ -1017,7 +1094,7 @@ class UltraRefinedRailwayTradingBot:
                 expected_loss = -stop_pips * pip_value
                 risk_reward_ratio = target_pips / stop_pips if stop_pips > 0 else 0
                 
-                # Record the trade
+                # Record the trade with enhanced tracking
                 trade_record = EnhancedTradeRecord(
                     trade_id=str(order_id),
                     timestamp=datetime.now(),
@@ -1036,21 +1113,37 @@ class UltraRefinedRailwayTradingBot:
                 )
                 
                 self.performance_tracker.add_trade(trade_record)
+                
+                # Update session stats
+                self.session_stats['trades_today'] += 1
                 self.daily_trades += 1
                 
-                logger.info(f"✅ ULTRA-REFINED TRADE EXECUTED:")
-                logger.info(f"   📊 {pair} {action} | Order ID: {order_id}")
-                logger.info(f"   💰 Position Size: {position_size} units")
-                logger.info(f"   🎯 Entry: {entry_price:.5f}")
-                logger.info(f"   🛡️  Stop Loss: {stop_loss:.5f} ({stop_pips:.1f} pips)")
-                logger.info(f"   🎯 Take Profit: {signal.target_price:.5f} ({target_pips:.1f} pips)")
-                logger.info(f"   📈 Risk/Reward: {risk_reward_ratio:.2f}")
-                logger.info(f"   💵 Expected P&L: +${expected_profit:.2f} / -${abs(expected_loss):.2f}")
+                # Log sync tracking info
+                sync_info = {
+                    'internal_id': internal_trade_id,
+                    'oanda_id': order_id,
+                    'pair': pair,
+                    'action': action,
+                    'timestamp': datetime.now().isoformat(),
+                    'confidence': confidence
+                }
+                self.sync_debug_log.append(sync_info)
+                
+                logger.info(f"✅ PROFIT-FOCUSED TRADE EXECUTED:")
+                logger.info(f"   🎯 {pair} {action} | OANDA ID: {order_id} | Internal: {internal_trade_id}")
+                logger.info(f"   💰 Position Size: {position_size} units | Confidence: {confidence:.1%}")
+                logger.info(f"   📊 Entry: {entry_price:.5f} | Target: {signal.target_price:.5f}")
+                logger.info(f"   🛡️  Stop: {stop_loss:.5f} ({stop_pips:.1f} pips)")
+                logger.info(f"   📈 R/R: {risk_reward_ratio:.2f} | Expected: +${expected_profit:.2f}/-${abs(expected_loss):.2f}")
+                logger.info(f"   🏆 FOCUS STRATEGY: USD strength specialist")
+                
+                # Debug sync tracking
+                logger.info(f"🔄 SYNC TRACKING: Internal {internal_trade_id} → OANDA {order_id}")
                 
                 return order_id
             
         except Exception as e:
-            logger.error(f"❌ Error executing ultra-refined trade: {e}")
+            logger.error(f"❌ Error executing profit-focused trade: {e}")
             return None
     
     def real_time_monitoring_loop(self):
@@ -1108,26 +1201,37 @@ class UltraRefinedRailwayTradingBot:
                 time.sleep(60)  # Wait longer on error
     
     def ultra_refined_trading_session(self):
-        """Enhanced trading session with all improvements."""
+        """Enhanced trading session with profit-focused improvements."""
         try:
-            logger.info("🚀 ULTRA-REFINED TRADING SESSION STARTED")
+            logger.info("🚀 PROFIT-FOCUSED TRADING SESSION STARTED")
             
-            # Scan for new signals
+            # Log sync debug info periodically
+            if len(self.sync_debug_log) > 0:
+                self.log_sync_debug_info()
+            
+            # Scan for new signals (profit-focused)
             self.scan_for_ultra_refined_signals()
             
-            # Log session summary
+            # Log session summary with profit focus
             account_info = self.trader.get_account_summary()
             if account_info:
-                logger.info(f"💰 Account Summary:")
+                logger.info(f"💰 PROFIT-FOCUSED ACCOUNT SUMMARY:")
                 logger.info(f"   Balance: ${account_info.get('balance', 0):.2f}")
                 logger.info(f"   NAV: ${account_info.get('nav', 0):.2f}")
                 logger.info(f"   Unrealized P&L: ${account_info.get('unrealized_pl', 0):.2f}")
                 logger.info(f"   Open Trades: {account_info.get('open_trade_count', 0)}")
                 logger.info(f"   Margin Used: ${account_info.get('margin_used', 0):.2f}")
                 logger.info(f"   Margin Available: ${account_info.get('margin_available', 0):.2f}")
+                
+                # Log session performance
+                logger.info(f"📊 SESSION PERFORMANCE:")
+                logger.info(f"   Today's Trades: {self.session_stats['trades_today']}")
+                logger.info(f"   Today's Win Rate: {self.session_stats['win_rate_today']:.1%}")
+                logger.info(f"   Today's P&L: ${self.session_stats['pnl_today']:.2f}")
+                logger.info(f"   Focus Strategy: USD/CAD & USD/CHF BUY only")
             
         except Exception as e:
-            logger.error(f"❌ Error in trading session: {e}")
+            logger.error(f"❌ Error in profit-focused trading session: {e}")
     
     def start_ultra_refined_24_7_trading(self):
         """Start the ultra-refined 24/7 trading system."""
