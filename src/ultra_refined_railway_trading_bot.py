@@ -975,8 +975,21 @@ class UltraRefinedRailwayTradingBot:
                     if pair in current_pairs:
                         continue
                     
+                    # Generate signals for our focus pairs only
+                    focus_pairs = [pair]  # Generate signal for this specific pair
+                    
+                    # Temporarily override the signal generator's pairs list
+                    original_pairs = self.signal_generator.major_pairs
+                    self.signal_generator.major_pairs = focus_pairs
+                    
                     # Generate signal
-                    signal = self.signal_generator.generate_signal(pair)
+                    signals = self.signal_generator.generate_forex_signals(max_signals=1, min_confidence=self.min_confidence)
+                    
+                    # Restore original pairs list
+                    self.signal_generator.major_pairs = original_pairs
+                    
+                    # Get the signal for our pair
+                    signal = signals[0] if signals else None
                     
                     # Check if signal exists and is not HOLD
                     if signal and signal.signal_type != 'HOLD':
