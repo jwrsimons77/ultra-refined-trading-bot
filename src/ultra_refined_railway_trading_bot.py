@@ -298,14 +298,14 @@ class UltraRefinedRailwayTradingBot:
         self.technical_analyzer = SimpleTechnicalAnalyzer()
         self.performance_tracker = AdvancedPerformanceTracker()
         
-        # PROFIT-OPTIMIZED TRADING PARAMETERS (Based on Analysis)
-        # DISABLED LOSING PAIRS: EUR/USD (-$93), AUD/USD (-$99), NZD/USD (-$122)
-        # FOCUS ON WINNERS: USD/CAD (+$331), USD/CHF (+$236)
-        self.pairs = ['USD/CAD', 'USD/CHF']  # Only profitable pairs
-        self.allowed_directions = ['BUY']  # Only profitable direction (+$216 vs -$83 for SELL)
+        # HIGH-CONFIDENCE TRADING PARAMETERS - 90%+ Confidence Only
+        # TRADE ALL PAIRS: No restrictions based on previous performance
+        # TRADE ALL DIRECTIONS: Both BUY and SELL signals allowed
+        self.pairs = ['EUR/USD', 'GBP/USD', 'USD/JPY', 'USD/CHF', 'AUD/USD', 'USD/CAD', 'NZD/USD']  # All major pairs
+        self.allowed_directions = ['BUY', 'SELL']  # Both directions allowed
         
-        # Tightened parameters for better win rate (currently 10.2%)
-        self.min_confidence = 0.75  # Increased from 0.65 to 0.75 based on analysis
+        # HIGH-CONFIDENCE ONLY STRATEGY
+        self.min_confidence = 0.90  # Only trade signals with 90%+ confidence
         self.base_risk_per_trade = 0.02  # Slightly increased for winners (was 0.015)
         self.max_concurrent_trades = 4  # Reduced for focus
         self.max_daily_trades = 6  # Reduced for quality over quantity
@@ -317,15 +317,23 @@ class UltraRefinedRailwayTradingBot:
         self.max_portfolio_risk = 0.06  # Reduced portfolio risk (was 0.08)
         self.min_stop_distance_pips = 25  # Increased minimum stop (was 20)
         
-        # Focus only on profitable pairs
+        # Spread limits for all major pairs
         self.max_spreads = {
-            'USD/CAD': 3.0,  # Slightly tighter
-            'USD/CHF': 2.5,  # Slightly tighter
+            'EUR/USD': 2.0,
+            'GBP/USD': 3.0, 
+            'USD/JPY': 2.0,
+            'USD/CHF': 2.5,
+            'AUD/USD': 3.0,
+            'USD/CAD': 3.0,
+            'NZD/USD': 4.0
         }
         
-        # Simplified correlation groups (focused strategy)
+        # Correlation groups for risk management
         self.correlation_groups = {
-            'USD_STRENGTH': ['USD/CAD', 'USD/CHF'],  # Our focus pairs
+            'USD_STRONG': ['EUR/USD', 'GBP/USD', 'AUD/USD', 'NZD/USD'],
+            'USD_WEAK': ['USD/JPY', 'USD/CHF', 'USD/CAD'],
+            'COMMODITY': ['AUD/USD', 'NZD/USD', 'USD/CAD'],
+            'SAFE_HAVEN': ['USD/JPY', 'USD/CHF']
         }
         
         # Enhanced tracking for debugging sync issues
@@ -362,25 +370,21 @@ class UltraRefinedRailwayTradingBot:
         self.monitoring_thread = None
         self.stop_monitoring = False
         
-        logger.info("🚀 PROFIT-OPTIMIZED RAILWAY BOT INITIALIZED")
+        logger.info("🚀 HIGH-CONFIDENCE RAILWAY BOT INITIALIZED")
         logger.info("=" * 60)
-        logger.info("🎯 PROFIT-FOCUSED STRATEGY ACTIVE")
-        logger.info(f"   📊 Pairs: {', '.join(self.pairs)} (WINNERS ONLY)")
-        logger.info(f"   🎯 Directions: {', '.join(self.allowed_directions)} (PROFITABLE ONLY)")
-        logger.info(f"   🔥 Min Confidence: {self.min_confidence:.1%} (ANALYSIS-OPTIMIZED)")
+        logger.info("🎯 HIGH-CONFIDENCE STRATEGY ACTIVE")
+        logger.info(f"   📊 Pairs: {', '.join(self.pairs)} (ALL MAJOR PAIRS)")
+        logger.info(f"   🎯 Directions: {', '.join(self.allowed_directions)} (BOTH BUY & SELL)")
+        logger.info(f"   🔥 Min Confidence: {self.min_confidence:.1%} (HIGH-CONFIDENCE ONLY)")
         logger.info(f"   💰 Base Risk per Trade: {self.base_risk_per_trade:.1%}")
-        logger.info(f"   🔢 Max Concurrent Trades: {self.max_concurrent_trades} (FOCUSED)")
-        logger.info(f"   ⚖️  Min Risk/Reward: {self.min_risk_reward_ratio:.1f} (INCREASED)")
-        logger.info("📈 DISABLED LOSING STRATEGIES:")
-        logger.info("   ❌ EUR/USD (-$93.25), AUD/USD (-$99.24), NZD/USD (-$122.61)")
-        logger.info("   ❌ SELL signals (-$83.40 total)")
-        logger.info("✅ ENABLED WINNING STRATEGIES:")
-        logger.info("   ✅ USD/CAD (+$331.63), USD/CHF (+$236.07)")
-        logger.info("   ✅ BUY signals (+$216.76 total)")
-        logger.info("🎯 CONFIDENCE ANALYSIS RESULTS:")
-        logger.info("   📊 75%+ confidence → Better win rates")
-        logger.info("   🚀 80%+ confidence → 3.5% win rate (3x better)")
-        logger.info("🎯 TARGET: Improve 10.2% → 25%+ win rate")
+        logger.info(f"   🔢 Max Concurrent Trades: {self.max_concurrent_trades}")
+        logger.info(f"   ⚖️  Min Risk/Reward: {self.min_risk_reward_ratio:.1f}")
+        logger.info("🎯 STRATEGY CHANGES:")
+        logger.info("   ✅ All major forex pairs enabled")
+        logger.info("   ✅ Both BUY and SELL signals allowed")
+        logger.info("   ✅ 90%+ confidence threshold for quality trades")
+        logger.info("   ✅ No pair restrictions - let confidence decide")
+        logger.info("🎯 TARGET: High-confidence trades with superior quality")
         logger.info("=" * 60)
         
     def reset_daily_counters(self):
@@ -601,26 +605,26 @@ class UltraRefinedRailwayTradingBot:
         return position_size
     
     def enhanced_signal_filtering(self, signal: dict) -> Tuple[bool, str]:
-        """Enhanced signal filtering with profit-focused criteria."""
+        """Enhanced signal filtering with high-confidence criteria."""
         try:
-            # 0. PROFIT-FOCUSED: Only BUY signals (BUY: +$216 vs SELL: -$83)
-            if signal['signal_type'] not in self.allowed_directions:
-                return False, f"Direction not allowed: {signal['signal_type']} (only {self.allowed_directions})"
-            
-            # 1. Basic confidence check (increased threshold)
+            # 1. High-confidence check (90%+ only)
             if signal['confidence'] < self.min_confidence:
                 return False, f"Low confidence {signal['confidence']:.1%} (need {self.min_confidence:.1%}+)"
             
-            # 2. Pair whitelist check (only profitable pairs)
+            # 2. Pair availability check (all major pairs allowed)
             if signal['pair'] not in self.pairs:
-                return False, f"Pair not in whitelist: {signal['pair']} (only {self.pairs})"
+                return False, f"Pair not supported: {signal['pair']} (supported: {self.pairs})"
             
-            # 3. Check spread conditions
+            # 3. Direction check (both BUY and SELL allowed)
+            if signal['signal_type'] not in self.allowed_directions:
+                return False, f"Direction not supported: {signal['signal_type']} (supported: {self.allowed_directions})"
+            
+            # 4. Check spread conditions
             spread_check = self.analyze_spread_conditions(signal['pair'])
             if not spread_check['acceptable']:
                 return False, spread_check['reason']
             
-            # 4. Check risk/reward ratio (increased threshold)
+            # 5. Check risk/reward ratio
             entry_price = signal['entry_price']
             target_price = signal['target_price']
             stop_loss = signal['stop_loss']
@@ -640,40 +644,40 @@ class UltraRefinedRailwayTradingBot:
             if risk_reward_ratio < self.min_risk_reward_ratio:
                 return False, f"Poor R/R ratio {risk_reward_ratio:.2f} (need {self.min_risk_reward_ratio:.2f}+)"
             
-            # 5. Check minimum stop distance (increased)
+            # 6. Check minimum stop distance
             if risk_pips < self.min_stop_distance_pips:
                 return False, f"Stop too tight {risk_pips:.1f} pips (need {self.min_stop_distance_pips}+)"
             
-            # 6. Check trading session
+            # 7. Check trading session
             if not self.is_good_trading_session():
                 return False, "Poor trading session"
             
-            # 7. Check news events
+            # 8. Check news events
             if self.is_high_impact_news_time():
                 return False, "High-impact news window"
             
-            # 8. Check correlation risk (simplified for focused strategy)
+            # 9. Check correlation risk
             if not self.check_correlation_risk(signal['pair'], signal['signal_type']):
                 return False, "Correlation risk too high"
             
-            # 9. Check daily performance (stop if losing streak)
+            # 10. Check daily performance (stop if losing streak)
             if self.session_stats['win_rate_today'] < 0.15 and self.session_stats['trades_today'] >= 3:
                 return False, f"Low win rate today {self.session_stats['win_rate_today']:.1%}"
             
-            # 10. Quality check for focused strategy
-            if signal['confidence'] < 0.75 and self.performance_tracker.should_reduce_risk():
-                return False, "Recent losses + moderate confidence"
+            # 11. Quality check for high-confidence strategy
+            if signal['confidence'] < 0.90 and self.performance_tracker.should_reduce_risk():
+                return False, "Recent losses + sub-90% confidence"
             
-            logger.info(f"✅ PROFIT-FOCUSED SIGNAL PASSED ALL FILTERS:")
+            logger.info(f"✅ HIGH-CONFIDENCE SIGNAL PASSED ALL FILTERS:")
             logger.info(f"   📊 {signal['pair']} {signal['signal_type']} | Confidence: {signal['confidence']:.1%}")
             logger.info(f"   🎯 Risk/Reward: {risk_reward_ratio:.2f} | Stop: {risk_pips:.1f} pips")
             logger.info(f"   📈 Spread: {spread_check['current_spread']:.1f} pips")
-            logger.info(f"   🏆 Focus Strategy: USD strength BUY only")
+            logger.info(f"   🏆 High-Confidence Strategy: 90%+ confidence all pairs & directions")
             
-            return True, "All profit-focused checks passed"
+            return True, "All high-confidence checks passed"
             
         except Exception as e:
-            logger.error(f"❌ Error in profit-focused signal filtering: {e}")
+            logger.error(f"❌ Error in high-confidence signal filtering: {e}")
             return False, f"Filter error: {str(e)}"
     
     def monitor_time_based_exits(self):
@@ -1066,14 +1070,16 @@ class UltraRefinedRailwayTradingBot:
             # Calculate position size with profit-focused adjustments
             position_size = self.calculate_dynamic_position_size(account_balance, pair, stop_distance_pips)
             
-            # Increase position size for our winning pairs and high confidence
-            if pair in ['USD/CAD', 'USD/CHF']:
-                if confidence >= 0.80:  # 80%+ confidence gets biggest bonus
-                    position_size = int(position_size * 1.4)  # 40% larger for 80%+ confidence
-                    logger.info(f"🚀 HIGH CONFIDENCE BONUS: Increased position size by 40% for {pair} at {confidence:.1%}")
-                elif confidence >= 0.75:  # 75%+ confidence gets moderate bonus
-                    position_size = int(position_size * 1.2)  # 20% larger for 75%+ confidence
-                    logger.info(f"💰 CONFIDENCE BONUS: Increased position size by 20% for {pair} at {confidence:.1%}")
+            # Increase position size for high confidence signals (all pairs)
+            if confidence >= 0.95:  # 95%+ confidence gets biggest bonus
+                position_size = int(position_size * 1.5)  # 50% larger for 95%+ confidence
+                logger.info(f"🚀 ULTRA HIGH CONFIDENCE BONUS: Increased position size by 50% for {pair} at {confidence:.1%}")
+            elif confidence >= 0.92:  # 92%+ confidence gets moderate bonus
+                position_size = int(position_size * 1.3)  # 30% larger for 92%+ confidence
+                logger.info(f"💰 HIGH CONFIDENCE BONUS: Increased position size by 30% for {pair} at {confidence:.1%}")
+            elif confidence >= 0.90:  # 90%+ confidence gets small bonus
+                position_size = int(position_size * 1.1)  # 10% larger for 90%+ confidence
+                logger.info(f"📈 CONFIDENCE BONUS: Increased position size by 10% for {pair} at {confidence:.1%}")
             
             # Check margin availability
             margin_check = self.trader.check_margin_availability(pair, position_size)
