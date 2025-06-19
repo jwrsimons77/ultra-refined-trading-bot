@@ -309,7 +309,7 @@ class UltraRefinedRailwayTradingBot:
         self.base_risk_per_trade = 0.02  # Slightly increased for winners (was 0.015)
         self.max_concurrent_trades = 4  # Reduced for focus
         self.max_daily_trades = 6  # Reduced for quality over quantity
-        self.min_risk_reward_ratio = 2.5  # Increased from 2.0
+        self.min_risk_reward_ratio = 2.0  # Standard 2:1 risk/reward ratio
         self.max_hold_days = 3  # Reduced for faster turnover
         
         # Enhanced risk management
