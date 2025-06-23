@@ -443,17 +443,45 @@ class OANDATrader:
             
             if response.status_code == 201:
                 result = response.json()
-                order_id = result['orderFillTransaction']['id']
                 
-                logger.info(f"✅ Order placed successfully!")
-                logger.info(f"   Order ID: {order_id}")
-                logger.info(f"   {trade_order.signal_type} {trade_order.pair}")
-                logger.info(f"   Units: {units}")
-                logger.info(f"   Entry: {entry_price}")
-                logger.info(f"   Target: {target_price}")
-                logger.info(f"   Stop Loss: {stop_loss}")
+                # Check if order was filled successfully
+                if 'orderFillTransaction' in result:
+                    order_id = result['orderFillTransaction']['id']
+                    
+                    logger.info(f"✅ Order placed successfully!")
+                    logger.info(f"   Order ID: {order_id}")
+                    logger.info(f"   {trade_order.signal_type} {trade_order.pair}")
+                    logger.info(f"   Units: {units}")
+                    logger.info(f"   Entry: {entry_price}")
+                    logger.info(f"   Target: {target_price}")
+                    logger.info(f"   Stop Loss: {stop_loss}")
+                    
+                    return order_id
                 
-                return order_id
+                # Check if order was cancelled
+                elif 'orderCancelTransaction' in result:
+                    cancel_reason = result['orderCancelTransaction'].get('reason', 'Unknown')
+                    order_id = result['orderCreateTransaction']['id']
+                    
+                    logger.error(f"❌ Order was cancelled immediately:")
+                    logger.error(f"   Order ID: {order_id}")
+                    logger.error(f"   Reason: {cancel_reason}")
+                    logger.error(f"   {trade_order.signal_type} {trade_order.pair}")
+                    logger.error(f"   Entry: {entry_price}")
+                    logger.error(f"   Target: {target_price}")
+                    logger.error(f"   Stop Loss: {stop_loss}")
+                    
+                    # Handle specific cancellation reasons
+                    if cancel_reason == "TAKE_PROFIT_ON_FILL_LOSS":
+                        logger.error(f"   💡 Issue: Take profit/stop loss levels too close to market price")
+                        logger.error(f"   💡 Suggestion: Increase minimum pip distance for TP/SL levels")
+                    
+                    return None
+                
+                else:
+                    logger.error(f"❌ Unexpected response format:")
+                    logger.error(f"   Available keys: {list(result.keys())}")
+                    return None
             else:
                 logger.error(f"❌ Failed to place order:")
                 logger.error(f"   Status Code: {response.status_code}")
