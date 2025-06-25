@@ -148,7 +148,7 @@ class LiveTradingBot:
             # Execute the trade
             result = self.trader.place_order(
                 pair=pair,
-                units=position_size if action == 'BUY' else -position_size,
+                units=position_size,
                 order_type='MARKET',
                 stop_loss_pips=stop_loss_pips,
                 take_profit_pips=take_profit_pips

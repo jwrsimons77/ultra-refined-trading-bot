@@ -1135,7 +1135,7 @@ class UltraRefinedRailwayTradingBot:
                 target_price=signal.target_price,
                 stop_loss=stop_loss,
                 confidence=confidence,
-                units=position_size if action == "BUY" else -position_size,
+                units=position_size,
                 risk_amount=account_balance * self.base_risk_per_trade
             )
             
