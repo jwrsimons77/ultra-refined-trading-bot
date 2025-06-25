@@ -388,6 +388,9 @@ class OANDATrader:
     def place_market_order(self, trade_order: TradeOrder) -> Optional[str]:
         """Place a market order with stop loss and take profit."""
         try:
+            # VERSION: v2.1 - Added market price validation
+            logger.info("📌 OandaTrader Version: v2.1 - Market price validation enabled")
+            
             # Convert pair format (EUR/USD -> EUR_USD)
             instrument = trade_order.pair.replace('/', '_')
             

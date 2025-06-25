@@ -474,16 +474,16 @@ class SimpleTechnicalAnalyzer:
             target_pips = int(target_distance / pip_value)
             stop_pips = int(stop_distance / pip_value)
             
-            # Ensure minimum viable targets based on pair-specific OANDA requirements
+            # Ensure minimum viable targets based on OANDA reality - CHF pairs extremely difficult
             if 'CHF' in pair:
-                min_target_pips = 100  # CHF pairs need 100+ pips for TP (50 SL * 2.0 R/R)
-                min_stop_pips = 50     # CHF pairs need 50+ pips for SL per OANDA
+                min_target_pips = 160  # CHF pairs: 160+ pips for TP (80 SL * 2.0 R/R)
+                min_stop_pips = 80     # CHF pairs: 80+ pips for SL (dramatically increased)
             elif 'JPY' in pair:
-                min_target_pips = 70   # JPY pairs need 70+ pips for TP (35 SL * 2.0 R/R)
-                min_stop_pips = 35     # JPY pairs need 35+ pips for SL
+                min_target_pips = 80   # JPY pairs: 80+ pips for TP (40 SL * 2.0 R/R)
+                min_stop_pips = 40     # JPY pairs: 40+ pips for SL (increased)
             else:
-                min_target_pips = 60   # Standard pairs need 60+ pips for TP (30 SL * 2.0 R/R)
-                min_stop_pips = 30     # Standard pairs need 30+ pips for SL
+                min_target_pips = 60   # Standard pairs: 60+ pips for TP (30 SL * 2.0 R/R)
+                min_stop_pips = 30     # Standard pairs: 30+ pips for SL
             
             if target_pips < min_target_pips:
                 target_pips = min_target_pips

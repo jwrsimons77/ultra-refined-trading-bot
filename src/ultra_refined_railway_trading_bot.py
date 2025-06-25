@@ -654,9 +654,9 @@ class UltraRefinedRailwayTradingBot:
             
             # 6. Check minimum stop distance (pair-specific requirements)
             if 'CHF' in signal['pair']:
-                min_sl_distance = 50  # CHF pairs: OANDA requires 50+ pips for SL
+                min_sl_distance = 80  # CHF pairs: Dramatically increased after rejections (was 50)
             elif 'JPY' in signal['pair']:
-                min_sl_distance = 35  # JPY pairs need wider stops
+                min_sl_distance = 40  # JPY pairs: slightly increased for safety
             else:
                 min_sl_distance = self.min_stop_distance_pips  # Standard minimum (30)
                 
@@ -664,14 +664,13 @@ class UltraRefinedRailwayTradingBot:
                 return False, f"Stop too tight {risk_pips:.1f} pips (need {min_sl_distance}+ for {signal['pair']})"
             
             # 6.5. Check minimum take profit distance (OANDA + R/R requirements)
-            # For CHF pairs: 50 pip SL * 2.0 R/R = 100 pip minimum TP
-            # But OANDA also requires 60+ TP, so we use the higher value
+            # CHF pairs proving extremely difficult - using professional minimums
             if 'CHF' in signal['pair']:
-                min_tp_distance = max(60, min_sl_distance * self.min_risk_reward_ratio)  # At least 60 or R/R requirement
+                min_tp_distance = max(120, min_sl_distance * self.min_risk_reward_ratio)  # CHF: 120+ or R/R requirement
             elif 'JPY' in signal['pair']:
-                min_tp_distance = max(60, 35 * self.min_risk_reward_ratio)  # At least 60 or 70 pips for 2:1 R/R
+                min_tp_distance = max(70, 40 * self.min_risk_reward_ratio)  # JPY: 70+ or 80 pips for 2:1 R/R
             else:
-                min_tp_distance = max(50, self.min_stop_distance_pips * self.min_risk_reward_ratio)  # At least 50 or 60 pips for 2:1 R/R
+                min_tp_distance = max(60, self.min_stop_distance_pips * self.min_risk_reward_ratio)  # Standard: 60+ or 60 pips for 2:1 R/R
                 
             if reward_pips < min_tp_distance:
                 return False, f"Take profit too close {reward_pips:.1f} pips (need {min_tp_distance}+ for {signal['pair']})"
