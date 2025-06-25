@@ -507,15 +507,23 @@ class UltraRefinedRailwayTradingBot:
         """Check if current time is optimal for trading."""
         current_hour = datetime.now(timezone.utc).hour
         
-        # Best time: London-NY overlap
-        if current_hour in self.london_ny_overlap_hours:
-            return True
+        # For 90%+ confidence strategy, trade 24/7 except during:
+        # - Weekend market close: Friday 21:00 UTC - Sunday 21:00 UTC
+        # - Major holiday hours (simplified check)
         
-        # Acceptable time: European and US sessions
-        if current_hour in self.acceptable_trading_hours:
-            return True
+        current_time = datetime.now(timezone.utc)
+        weekday = current_time.weekday()  # 0=Monday, 6=Sunday
         
-        return False
+        # Block weekend trading
+        if weekday == 4 and current_hour >= 21:  # Friday after 21:00 UTC
+            return False
+        if weekday == 5 or weekday == 6:  # Saturday or Sunday
+            return False
+        if weekday == 0 and current_hour < 21:  # Monday before 21:00 UTC (market closed)
+            return False
+        
+        # For high-confidence strategy (90%+), trade during all market hours
+        return True
     
     def check_correlation_risk(self, new_pair: str, new_direction: str) -> bool:
         """Check if new trade would create excessive correlation risk."""
@@ -1259,7 +1267,7 @@ class UltraRefinedRailwayTradingBot:
                 logger.info(f"   Today's Trades: {self.session_stats['trades_today']}")
                 logger.info(f"   Today's Win Rate: {self.session_stats['win_rate_today']:.1%}")
                 logger.info(f"   Today's P&L: ${self.session_stats['pnl_today']:.2f}")
-                logger.info(f"   Focus Strategy: USD/CAD & USD/CHF BUY only")
+                logger.info(f"   Focus Strategy: All pairs, both directions, 90%+ confidence")
             
         except Exception as e:
             logger.error(f"❌ Error in profit-focused trading session: {e}")
