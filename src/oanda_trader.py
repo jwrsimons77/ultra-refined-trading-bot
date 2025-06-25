@@ -394,6 +394,28 @@ class OANDATrader:
             # Determine units (positive for buy, negative for sell)
             units = trade_order.units if trade_order.signal_type == "BUY" else -trade_order.units
             
+            # Enhanced distance validation before placing order
+            pip_size = 0.01 if 'JPY' in instrument else 0.0001
+            
+            if trade_order.signal_type == "BUY":
+                sl_distance_pips = abs(trade_order.entry_price - trade_order.stop_loss) / pip_size
+                tp_distance_pips = abs(trade_order.target_price - trade_order.entry_price) / pip_size
+            else:  # SELL
+                sl_distance_pips = abs(trade_order.stop_loss - trade_order.entry_price) / pip_size
+                tp_distance_pips = abs(trade_order.entry_price - trade_order.target_price) / pip_size
+            
+            # OANDA minimum distances with spread buffer - increased due to repeated rejections
+            min_sl_distance = 50  # Minimum 50 pips for stop loss (increased from 40)
+            min_tp_distance = 60  # Minimum 60 pips for take profit (increased from 45)
+            
+            if sl_distance_pips < min_sl_distance:
+                logger.error(f"❌ Stop loss too close: {sl_distance_pips:.1f} pips (need {min_sl_distance}+)")
+                return None
+                
+            if tp_distance_pips < min_tp_distance:
+                logger.error(f"❌ Take profit too close: {tp_distance_pips:.1f} pips (need {min_tp_distance}+)")
+                return None
+            
             # Format prices with correct precision for the instrument
             if isinstance(instrument, str) and 'JPY' in instrument:
                 # JPY pairs use 3 decimal places
@@ -413,6 +435,8 @@ class OANDATrader:
             logger.info(f"   Entry: {entry_price}")
             logger.info(f"   Target: {target_price}")
             logger.info(f"   Stop Loss: {stop_loss}")
+            logger.info(f"   SL Distance: {sl_distance_pips:.1f} pips")
+            logger.info(f"   TP Distance: {tp_distance_pips:.1f} pips")
             
             order_data = {
                 "order": {
@@ -470,11 +494,14 @@ class OANDATrader:
                     logger.error(f"   Entry: {entry_price}")
                     logger.error(f"   Target: {target_price}")
                     logger.error(f"   Stop Loss: {stop_loss}")
+                    logger.error(f"   SL Distance: {sl_distance_pips:.1f} pips")
+                    logger.error(f"   TP Distance: {tp_distance_pips:.1f} pips")
                     
                     # Handle specific cancellation reasons
                     if cancel_reason == "TAKE_PROFIT_ON_FILL_LOSS":
                         logger.error(f"   💡 Issue: Take profit/stop loss levels too close to market price")
                         logger.error(f"   💡 Suggestion: Increase minimum pip distance for TP/SL levels")
+                        logger.error(f"   💡 Try distances: SL ≥ 50 pips, TP ≥ 60 pips for USD/CHF")
                     
                     return None
                 
