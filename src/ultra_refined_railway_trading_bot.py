@@ -652,14 +652,29 @@ class UltraRefinedRailwayTradingBot:
             if risk_reward_ratio < self.min_risk_reward_ratio:
                 return False, f"Poor R/R ratio {risk_reward_ratio:.2f} (need {self.min_risk_reward_ratio:.2f}+)"
             
-            # 6. Check minimum stop distance
-            if risk_pips < self.min_stop_distance_pips:
-                return False, f"Stop too tight {risk_pips:.1f} pips (need {self.min_stop_distance_pips}+)"
+            # 6. Check minimum stop distance (pair-specific requirements)
+            if 'CHF' in signal['pair']:
+                min_sl_distance = 50  # CHF pairs: OANDA requires 50+ pips for SL
+            elif 'JPY' in signal['pair']:
+                min_sl_distance = 35  # JPY pairs need wider stops
+            else:
+                min_sl_distance = self.min_stop_distance_pips  # Standard minimum (30)
+                
+            if risk_pips < min_sl_distance:
+                return False, f"Stop too tight {risk_pips:.1f} pips (need {min_sl_distance}+ for {signal['pair']})"
             
-            # 6.5. Check minimum take profit distance (OANDA requirement + spread buffer)
-            min_tp_distance = 30  # Minimum 30 pips for take profit (reduced from 60 to allow more trades)
+            # 6.5. Check minimum take profit distance (OANDA + R/R requirements)
+            # For CHF pairs: 50 pip SL * 2.0 R/R = 100 pip minimum TP
+            # But OANDA also requires 60+ TP, so we use the higher value
+            if 'CHF' in signal['pair']:
+                min_tp_distance = max(60, min_sl_distance * self.min_risk_reward_ratio)  # At least 60 or R/R requirement
+            elif 'JPY' in signal['pair']:
+                min_tp_distance = max(60, 35 * self.min_risk_reward_ratio)  # At least 60 or 70 pips for 2:1 R/R
+            else:
+                min_tp_distance = max(50, self.min_stop_distance_pips * self.min_risk_reward_ratio)  # At least 50 or 60 pips for 2:1 R/R
+                
             if reward_pips < min_tp_distance:
-                return False, f"Take profit too close {reward_pips:.1f} pips (need {min_tp_distance}+ for OANDA)"
+                return False, f"Take profit too close {reward_pips:.1f} pips (need {min_tp_distance}+ for {signal['pair']})"
             
             # 7. Check trading session
             if not self.is_good_trading_session():

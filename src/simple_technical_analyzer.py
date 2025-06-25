@@ -474,18 +474,27 @@ class SimpleTechnicalAnalyzer:
             target_pips = int(target_distance / pip_value)
             stop_pips = int(stop_distance / pip_value)
             
-            # Ensure minimum viable targets (20-30 pips minimum)
-            min_pips = 25
-            if target_pips < min_pips:
-                target_pips = min_pips
+            # Ensure minimum viable targets based on pair-specific OANDA requirements
+            if 'CHF' in pair:
+                min_target_pips = 100  # CHF pairs need 100+ pips for TP (50 SL * 2.0 R/R)
+                min_stop_pips = 50     # CHF pairs need 50+ pips for SL per OANDA
+            elif 'JPY' in pair:
+                min_target_pips = 70   # JPY pairs need 70+ pips for TP (35 SL * 2.0 R/R)
+                min_stop_pips = 35     # JPY pairs need 35+ pips for SL
+            else:
+                min_target_pips = 60   # Standard pairs need 60+ pips for TP (30 SL * 2.0 R/R)
+                min_stop_pips = 30     # Standard pairs need 30+ pips for SL
+            
+            if target_pips < min_target_pips:
+                target_pips = min_target_pips
                 target_distance = target_pips * pip_value
                 if signal_type.upper() == "BUY":
                     target = entry_price + target_distance
                 else:
                     target = entry_price - target_distance
             
-            if stop_pips < 15:
-                stop_pips = 15
+            if stop_pips < min_stop_pips:
+                stop_pips = min_stop_pips
                 stop_distance = stop_pips * pip_value
                 if signal_type.upper() == "BUY":
                     stop_loss = entry_price - stop_distance

@@ -404,9 +404,17 @@ class OANDATrader:
                 sl_distance_pips = abs(trade_order.stop_loss - trade_order.entry_price) / pip_size
                 tp_distance_pips = abs(trade_order.entry_price - trade_order.target_price) / pip_size
             
-            # OANDA minimum distances with spread buffer - reduced to allow 30+ pip trades
-            min_sl_distance = 30  # Minimum 30 pips for stop loss (reduced from 50)
-            min_tp_distance = 30  # Minimum 30 pips for take profit (reduced from 60)
+            # OANDA minimum distances based on actual rejection feedback
+            # CHF pairs specifically need 50+ SL and 60+ TP per OANDA error message
+            if 'CHF' in instrument:
+                min_sl_distance = 50  # CHF pairs: OANDA requires 50+ pips for SL
+                min_tp_distance = 60  # CHF pairs: OANDA requires 60+ pips for TP
+            elif 'JPY' in instrument:
+                min_sl_distance = 35  # JPY pairs have different pip structure
+                min_tp_distance = 60  # JPY pairs need standard TP distance
+            else:
+                min_sl_distance = 30  # Standard for EUR/USD, GBP/USD, etc.
+                min_tp_distance = 50  # Reduced standard TP distance for major pairs
             
             if sl_distance_pips < min_sl_distance:
                 logger.error(f"❌ Stop loss too close: {sl_distance_pips:.1f} pips (need {min_sl_distance}+)")
