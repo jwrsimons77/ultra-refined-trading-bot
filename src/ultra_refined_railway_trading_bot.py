@@ -520,7 +520,7 @@ class UltraRefinedRailwayTradingBot:
         if weekday == 5 or weekday == 6:  # Saturday or Sunday
             return False
         if weekday == 0 and current_hour < 21:  # Monday before 21:00 UTC (market closed)
-        return False
+            return False
         
         # For high-confidence strategy (90%+), trade during all market hours
         return True
