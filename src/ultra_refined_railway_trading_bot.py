@@ -120,6 +120,19 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Run the bot continuously
+logger.info("=" * 50)
+logger.info("🚀 ULTRA REFINED RAILWAY TRADING BOT v2.1")
+logger.info("📌 Deployment includes market price validation fix")
+logger.info("=" * 50)
+
+# Initialize trader
+oanda_trader = OANDATrader(
+    api_key=os.environ['OANDA_API_KEY'],
+    account_id=os.environ['OANDA_ACCOUNT_ID'],
+    environment=os.environ.get('OANDA_ENVIRONMENT', 'practice')
+)
+
 @dataclass
 class EnhancedTradeRecord:
     """Comprehensive trade record with advanced metrics."""
