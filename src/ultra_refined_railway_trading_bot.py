@@ -315,7 +315,7 @@ class UltraRefinedRailwayTradingBot:
         # Enhanced risk management
         self.max_daily_loss = 0.03  # Tighter daily loss limit (was 0.05)
         self.max_portfolio_risk = 0.06  # Reduced portfolio risk (was 0.08)
-        self.min_stop_distance_pips = 50  # Increased for OANDA compatibility (was 30)
+        self.min_stop_distance_pips = 30  # Reduced to allow 30+ pip trades (was 50)
         
         # Spread limits for all major pairs
         self.max_spreads = {
@@ -657,7 +657,7 @@ class UltraRefinedRailwayTradingBot:
                 return False, f"Stop too tight {risk_pips:.1f} pips (need {self.min_stop_distance_pips}+)"
             
             # 6.5. Check minimum take profit distance (OANDA requirement + spread buffer)
-            min_tp_distance = 60  # Minimum 60 pips for take profit (increased from 30 for OANDA stability)
+            min_tp_distance = 30  # Minimum 30 pips for take profit (reduced from 60 to allow more trades)
             if reward_pips < min_tp_distance:
                 return False, f"Take profit too close {reward_pips:.1f} pips (need {min_tp_distance}+ for OANDA)"
             

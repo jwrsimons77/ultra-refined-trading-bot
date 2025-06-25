@@ -404,9 +404,9 @@ class OANDATrader:
                 sl_distance_pips = abs(trade_order.stop_loss - trade_order.entry_price) / pip_size
                 tp_distance_pips = abs(trade_order.entry_price - trade_order.target_price) / pip_size
             
-            # OANDA minimum distances with spread buffer - increased due to repeated rejections
-            min_sl_distance = 50  # Minimum 50 pips for stop loss (increased from 40)
-            min_tp_distance = 60  # Minimum 60 pips for take profit (increased from 45)
+            # OANDA minimum distances with spread buffer - reduced to allow 30+ pip trades
+            min_sl_distance = 30  # Minimum 30 pips for stop loss (reduced from 50)
+            min_tp_distance = 30  # Minimum 30 pips for take profit (reduced from 60)
             
             if sl_distance_pips < min_sl_distance:
                 logger.error(f"❌ Stop loss too close: {sl_distance_pips:.1f} pips (need {min_sl_distance}+)")
