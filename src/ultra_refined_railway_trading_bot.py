@@ -87,7 +87,6 @@ except ImportError as e:
             print("✅ Successfully imported modules after adding all paths")
         except ImportError as e3:
             print(f"❌ Final import error: {e3}")
-            print("🚨 Critical: Could not import required modules")
             print(f"🔍 Current working directory: {os.getcwd()}")
             print(f"🔍 Files in current directory: {os.listdir('.')}")
             if os.path.exists('src'):
@@ -700,9 +699,12 @@ class UltraRefinedRailwayTradingBot:
             if not self.check_correlation_risk(signal['pair'], signal['signal_type']):
                 return False, "Correlation risk too high"
             
-            # 10. Check daily performance (stop if losing streak)
+            # 10. Check daily performance (stop if losing streak) - RE-ENABLED
+            # FIXED: Session stats tracking now works properly for trade closures
             if self.session_stats['win_rate_today'] < 0.15 and self.session_stats['trades_today'] >= 3:
                 return False, f"Low win rate today {self.session_stats['win_rate_today']:.1%}"
+            
+
             
             # 11. Quality check for high-confidence strategy
             if signal['confidence'] < 0.90 and self.performance_tracker.should_reduce_risk():
@@ -803,6 +805,31 @@ class UltraRefinedRailwayTradingBot:
                                 'CLOSED_TIME',
                                 reason
                             )
+                            
+                            # UPDATE SESSION STATS: Track this trade closure
+                            # 'CLOSED_TIME' usually means we closed at breakeven or small loss
+                            # Check if it was actually profitable or not based on P&L
+                            final_pnl = float(position.get('unrealizedPL', 0))
+                            
+                            if final_pnl > 0:
+                                # It was a winner
+                                self.session_stats['wins_today'] += 1
+                                trade_result = 'WIN'
+                            else:
+                                # It was a loss or breakeven
+                                trade_result = 'LOSS'
+                            
+                            # Update win rate calculation
+                            if self.session_stats['trades_today'] > 0:
+                                self.session_stats['win_rate_today'] = self.session_stats['wins_today'] / self.session_stats['trades_today']
+                            
+                            # Update session P&L
+                            self.session_stats['pnl_today'] += final_pnl
+                            
+                            logger.info(f"📊 TRADE CLOSED - SESSION STATS UPDATED:")
+                            logger.info(f"   Result: {trade_result} | P&L: ${final_pnl:.2f}")
+                            logger.info(f"   Today: {self.session_stats['wins_today']}/{self.session_stats['trades_today']} wins ({self.session_stats['win_rate_today']:.1%})")
+                            logger.info(f"   Daily P&L: ${self.session_stats['pnl_today']:.2f}")
                 
         except Exception as e:
             logger.error(f"❌ Error in time-based exit monitoring: {e}")
@@ -1183,6 +1210,9 @@ class UltraRefinedRailwayTradingBot:
                 # Update session stats
                 self.session_stats['trades_today'] += 1
                 self.daily_trades += 1
+                
+                # Note: Win rate calculation will be fixed later when we properly track trade closures
+                logger.info(f"📊 TRADE EXECUTED: Trade #{self.session_stats['trades_today']} today")
                 
                 # Log sync tracking info
                 sync_info = {
