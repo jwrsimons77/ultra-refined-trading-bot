@@ -192,7 +192,7 @@ class AdvancedPerformanceTracker:
             return
             
         trade.exit_price = exit_price
-        trade.exit_timestamp = datetime.now()
+        trade.exit_timestamp = datetime.now(timezone.utc)  # Fixed: Use UTC time
         trade.status = status
         trade.exit_reason = exit_reason
         
@@ -376,7 +376,7 @@ class UltraRefinedRailwayTradingBot:
         # Track daily trades and performance
         self.daily_trades = 0
         self.daily_pnl = 0.0
-        self.last_reset_date = datetime.now().date()
+        self.last_reset_date = datetime.now(timezone.utc).date()  # Use UTC for consistency
         
         # Threading for real-time monitoring
         self.monitoring_thread = None
@@ -400,11 +400,13 @@ class UltraRefinedRailwayTradingBot:
         logger.info("=" * 60)
         
     def reset_daily_counters(self):
-        """Reset daily trading counters."""
-        current_date = datetime.now().date()
+        """Reset daily trading counters - FIXED to use UTC time."""
+        # Use UTC time for consistency across different server timezones
+        current_date = datetime.now(timezone.utc).date()
         if current_date != self.last_reset_date:
             logger.info(f"📅 Daily reset: {self.daily_trades} trades, ${self.daily_pnl:.2f} P&L")
             logger.info(f"📊 Session stats: {self.session_stats['wins_today']}/{self.session_stats['trades_today']} wins ({self.session_stats['win_rate_today']:.1%})")
+            logger.info(f"🗓️  UTC Date change: {self.last_reset_date} → {current_date}")
             
             # Reset counters
             self.daily_trades = 0
@@ -591,38 +593,44 @@ class UltraRefinedRailwayTradingBot:
         return pip_value
     
     def calculate_dynamic_position_size(self, account_balance: float, pair: str, stop_distance_pips: float) -> int:
-        """Calculate position size with proper pip value calculation."""
-        # Get dynamic risk adjustment
-        risk_adjustment = self.performance_tracker.get_dynamic_risk_adjustment()
-        adjusted_risk = self.base_risk_per_trade * risk_adjustment
+        """Calculate position size - SAFER 5000 UNITS with margin fallback."""
+        # PREFERRED: Try 5000 units first
+        preferred_size = 5000
         
-        # Calculate risk amount
-        risk_amount = account_balance * adjusted_risk
+        # Check if 5000 units fits within margin limits
+        margin_check = self.trader.check_margin_availability(pair, preferred_size)
         
-        # Ensure minimum stop distance
-        if stop_distance_pips < self.min_stop_distance_pips:
-            stop_distance_pips = self.min_stop_distance_pips
-            logger.warning(f"⚠️ Stop distance adjusted to minimum {self.min_stop_distance_pips} pips")
-        
-        # Calculate position size using accurate pip value
-        # Position size = Risk amount / (Stop distance in pips × Pip value per unit)
-        pip_value_per_unit = self.calculate_accurate_pip_value(pair, 1)
-        position_size = int(risk_amount / (stop_distance_pips * pip_value_per_unit))
-        
-        # Apply position size limits
-        min_size = 1000
-        max_size = min(20000, int(account_balance * 0.1))  # Max 10% of account per position
-        
-        position_size = max(min_size, min(position_size, max_size))
-        
-        logger.info(f"💰 Position size calculation for {pair}:")
-        logger.info(f"   Risk adjustment: {risk_adjustment:.2f}")
-        logger.info(f"   Risk amount: ${risk_amount:.2f}")
-        logger.info(f"   Stop distance: {stop_distance_pips:.1f} pips")
-        logger.info(f"   Pip value per unit: ${pip_value_per_unit:.4f}")
-        logger.info(f"   Position size: {position_size} units")
-        
-        return position_size
+        if margin_check['available']:
+            logger.info(f"💰 Using PREFERRED 5000 units for {pair}")
+            logger.info(f"   Margin required: ${margin_check['margin_required']:.2f}")
+            logger.info(f"   Margin available: ${margin_check['effective_available']:.2f}")
+            return preferred_size
+        else:
+            # Fallback: Calculate maximum safe size within margin limits
+            effective_margin = margin_check['effective_available']
+            
+            if margin_check['margin_required'] > 0:
+                # Calculate what we can afford with available margin
+                margin_per_unit = margin_check['margin_required'] / preferred_size
+                safe_units = int(effective_margin / margin_per_unit)
+                
+                # Round down to nearest 1000 (minimum trade size)
+                safe_units = max(1000, (safe_units // 1000) * 1000)
+                
+                # Verify the fallback size works
+                fallback_check = self.trader.check_margin_availability(pair, safe_units)
+                if fallback_check['available']:
+                    logger.warning(f"⚠️ Using FALLBACK {safe_units} units for {pair} (5000 too large)")
+                    logger.info(f"   Preferred 5000 units needed: ${margin_check['margin_required']:.2f}")
+                    logger.info(f"   Available margin: ${effective_margin:.2f}")
+                    logger.info(f"   Fallback {safe_units} units needs: ${fallback_check['margin_required']:.2f}")
+                    return safe_units
+            
+            # Last resort: Use minimum size
+            logger.error(f"❌ Cannot find safe position size for {pair}")
+            logger.error(f"   5000 units need: ${margin_check['margin_required']:.2f}")
+            logger.error(f"   Available margin: ${effective_margin:.2f}")
+            return 1000  # Minimum trade size as last resort
     
     def enhanced_signal_filtering(self, signal: dict) -> Tuple[bool, str]:
         """Enhanced signal filtering with high-confidence criteria."""
@@ -726,7 +734,7 @@ class UltraRefinedRailwayTradingBot:
         """Monitor and close trades based on time criteria."""
         try:
             open_positions = self.trader.get_open_positions()
-            current_time = datetime.now()
+            current_time = datetime.now(timezone.utc)  # Fixed: Use UTC time
             
             # Ensure open_positions is a list
             if not isinstance(open_positions, list):
@@ -1134,19 +1142,11 @@ class UltraRefinedRailwayTradingBot:
             else:
                 stop_distance_pips = (stop_loss - entry_price) / pip_size
             
-            # Calculate position size with profit-focused adjustments
+            # Calculate position size - FIXED TO 5000 UNITS (no confidence multipliers)
             position_size = self.calculate_dynamic_position_size(account_balance, pair, stop_distance_pips)
             
-            # Increase position size for high confidence signals (all pairs)
-            if confidence >= 0.95:  # 95%+ confidence gets biggest bonus
-                position_size = int(position_size * 1.5)  # 50% larger for 95%+ confidence
-                logger.info(f"🚀 ULTRA HIGH CONFIDENCE BONUS: Increased position size by 50% for {pair} at {confidence:.1%}")
-            elif confidence >= 0.92:  # 92%+ confidence gets moderate bonus
-                position_size = int(position_size * 1.3)  # 30% larger for 92%+ confidence
-                logger.info(f"💰 HIGH CONFIDENCE BONUS: Increased position size by 30% for {pair} at {confidence:.1%}")
-            elif confidence >= 0.90:  # 90%+ confidence gets small bonus
-                position_size = int(position_size * 1.1)  # 10% larger for 90%+ confidence
-                logger.info(f"📈 CONFIDENCE BONUS: Increased position size by 10% for {pair} at {confidence:.1%}")
+            # REMOVED: Confidence multipliers (now using fixed 5000 units)
+            logger.info(f"💰 Using FIXED position size: {position_size} units for {pair} at {confidence:.1%} confidence")
             
             # Check margin availability
             margin_check = self.trader.check_margin_availability(pair, position_size)
@@ -1170,7 +1170,7 @@ class UltraRefinedRailwayTradingBot:
             
             if order_id:
                 # Enhanced sync tracking
-                internal_trade_id = f"{pair}_{action}_{int(datetime.now().timestamp())}"
+                internal_trade_id = f"{pair}_{action}_{int(datetime.now(timezone.utc).timestamp())}"  # Fixed: Use UTC time
                 self.trade_id_map[internal_trade_id] = order_id
                 
                 # Calculate expected profit/loss
@@ -1190,7 +1190,7 @@ class UltraRefinedRailwayTradingBot:
                 # Record the trade with enhanced tracking
                 trade_record = EnhancedTradeRecord(
                     trade_id=str(order_id),
-                    timestamp=datetime.now(),
+                    timestamp=datetime.now(timezone.utc),  # Fixed: Use UTC time
                     pair=pair,
                     signal_type=action,
                     confidence=confidence,
@@ -1220,7 +1220,7 @@ class UltraRefinedRailwayTradingBot:
                     'oanda_id': order_id,
                     'pair': pair,
                     'action': action,
-                    'timestamp': datetime.now().isoformat(),
+                    'timestamp': datetime.now(timezone.utc).isoformat(),  # Fixed: Use UTC time
                     'confidence': confidence
                 }
                 self.sync_debug_log.append(sync_info)
