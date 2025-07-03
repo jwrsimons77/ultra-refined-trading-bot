@@ -593,44 +593,82 @@ class UltraRefinedRailwayTradingBot:
         return pip_value
     
     def calculate_dynamic_position_size(self, account_balance: float, pair: str, stop_distance_pips: float) -> int:
-        """Calculate position size - SAFER 5000 UNITS with margin fallback."""
-        # PREFERRED: Try 5000 units first
+        """Calculate position size with intelligent risk management - PREFER 5000 units with smart fallbacks."""
+        # Get dynamic risk adjustment based on recent performance
+        risk_adjustment = self.performance_tracker.get_dynamic_risk_adjustment()
+        adjusted_risk = self.base_risk_per_trade * risk_adjustment
+        
+        # Calculate risk amount
+        risk_amount = account_balance * adjusted_risk
+        
+        # Ensure minimum stop distance
+        if stop_distance_pips < self.min_stop_distance_pips:
+            stop_distance_pips = self.min_stop_distance_pips
+            logger.warning(f"⚠️ Stop distance adjusted to minimum {self.min_stop_distance_pips} pips")
+        
+        # Calculate position size using accurate pip value
+        # Position size = Risk amount / (Stop distance in pips × Pip value per unit)
+        pip_value_per_unit = self.calculate_accurate_pip_value(pair, 1)
+        calculated_size = int(risk_amount / (stop_distance_pips * pip_value_per_unit))
+        
+        # Apply position size limits
+        min_size = 1000
+        max_size = min(20000, int(account_balance * 0.1))  # Max 10% of account per position
+        
+        calculated_size = max(min_size, min(calculated_size, max_size))
+        
+        # PREFERRED: Try 5000 units if conditions are good
         preferred_size = 5000
         
-        # Check if 5000 units fits within margin limits
-        margin_check = self.trader.check_margin_availability(pair, preferred_size)
+        # Check if 5000 units fits within our calculated risk limits AND margin
+        if preferred_size <= calculated_size:
+            # Verify margin availability
+            margin_check = self.trader.check_margin_availability(pair, preferred_size)
+            
+            if margin_check['available']:
+                logger.info(f"💰 Using PREFERRED 5000 units for {pair}")
+                logger.info(f"   Risk adjustment: {risk_adjustment:.2f} (performance-based)")
+                logger.info(f"   Calculated max size: {calculated_size} units")
+                logger.info(f"   Margin required: ${margin_check['margin_required']:.2f}")
+                return preferred_size
+        
+        # FALLBACK: Use calculated size (respects risk management)
+        margin_check = self.trader.check_margin_availability(pair, calculated_size)
         
         if margin_check['available']:
-            logger.info(f"💰 Using PREFERRED 5000 units for {pair}")
-            logger.info(f"   Margin required: ${margin_check['margin_required']:.2f}")
-            logger.info(f"   Margin available: ${margin_check['effective_available']:.2f}")
-            return preferred_size
-        else:
-            # Fallback: Calculate maximum safe size within margin limits
-            effective_margin = margin_check['effective_available']
+            logger.warning(f"⚠️ Using CALCULATED {calculated_size} units for {pair} (5000 too large)")
+            logger.info(f"   Risk adjustment: {risk_adjustment:.2f} (performance-based)")
+            logger.info(f"   Risk amount: ${risk_amount:.2f}")
+            logger.info(f"   Stop distance: {stop_distance_pips:.1f} pips")
+            logger.info(f"   Pip value per unit: ${pip_value_per_unit:.4f}")
+            return calculated_size
+        
+        # LAST RESORT: Find maximum safe size within margin
+        effective_margin = margin_check['effective_available']
+        
+        if margin_check['margin_required'] > 0:
+            # Calculate what we can afford with available margin
+            margin_per_unit = margin_check['margin_required'] / calculated_size
+            safe_units = int(effective_margin / margin_per_unit)
             
-            if margin_check['margin_required'] > 0:
-                # Calculate what we can afford with available margin
-                margin_per_unit = margin_check['margin_required'] / preferred_size
-                safe_units = int(effective_margin / margin_per_unit)
-                
-                # Round down to nearest 1000 (minimum trade size)
-                safe_units = max(1000, (safe_units // 1000) * 1000)
-                
-                # Verify the fallback size works
-                fallback_check = self.trader.check_margin_availability(pair, safe_units)
-                if fallback_check['available']:
-                    logger.warning(f"⚠️ Using FALLBACK {safe_units} units for {pair} (5000 too large)")
-                    logger.info(f"   Preferred 5000 units needed: ${margin_check['margin_required']:.2f}")
-                    logger.info(f"   Available margin: ${effective_margin:.2f}")
-                    logger.info(f"   Fallback {safe_units} units needs: ${fallback_check['margin_required']:.2f}")
-                    return safe_units
+            # Round down to nearest 1000 (minimum trade size)
+            safe_units = max(1000, (safe_units // 1000) * 1000)
             
-            # Last resort: Use minimum size
-            logger.error(f"❌ Cannot find safe position size for {pair}")
-            logger.error(f"   5000 units need: ${margin_check['margin_required']:.2f}")
-            logger.error(f"   Available margin: ${effective_margin:.2f}")
-            return 1000  # Minimum trade size as last resort
+            # Verify the fallback size works
+            fallback_check = self.trader.check_margin_availability(pair, safe_units)
+            if fallback_check['available']:
+                logger.error(f"❌ Using MARGIN-SAFE {safe_units} units for {pair}")
+                logger.error(f"   Risk adjustment: {risk_adjustment:.2f} (performance-based)")
+                logger.error(f"   Calculated size {calculated_size} units needed: ${margin_check['margin_required']:.2f}")
+                logger.error(f"   Available margin: ${effective_margin:.2f}")
+                return safe_units
+        
+        # EMERGENCY: Return 0 to reject trade (no safe size available)
+        logger.error(f"❌ NO SAFE POSITION SIZE AVAILABLE for {pair}")
+        logger.error(f"   Risk adjustment: {risk_adjustment:.2f} (performance-based)")
+        logger.error(f"   Calculated size {calculated_size} units needed: ${margin_check['margin_required']:.2f}")
+        logger.error(f"   Available margin: ${effective_margin:.2f}")
+        return 0  # Reject trade - no safe size possible
     
     def enhanced_signal_filtering(self, signal: dict) -> Tuple[bool, str]:
         """Enhanced signal filtering with high-confidence criteria."""
@@ -717,6 +755,10 @@ class UltraRefinedRailwayTradingBot:
             # 11. Quality check for high-confidence strategy
             if signal['confidence'] < 0.90 and self.performance_tracker.should_reduce_risk():
                 return False, "Recent losses + sub-90% confidence"
+            
+            # 12. Additional confidence check for moderate signals during poor performance
+            if signal['confidence'] < 0.65 and self.performance_tracker.should_reduce_risk():
+                return False, "Recent losses + moderate confidence"
             
             logger.info(f"✅ HIGH-CONFIDENCE SIGNAL PASSED ALL FILTERS:")
             logger.info(f"   📊 {signal['pair']} {signal['signal_type']} | Confidence: {signal['confidence']:.1%}")
@@ -1142,11 +1184,16 @@ class UltraRefinedRailwayTradingBot:
             else:
                 stop_distance_pips = (stop_loss - entry_price) / pip_size
             
-            # Calculate position size - FIXED TO 5000 UNITS (no confidence multipliers)
+            # Calculate position size with intelligent risk management
             position_size = self.calculate_dynamic_position_size(account_balance, pair, stop_distance_pips)
             
-            # REMOVED: Confidence multipliers (now using fixed 5000 units)
-            logger.info(f"💰 Using FIXED position size: {position_size} units for {pair} at {confidence:.1%} confidence")
+            # Check if position size is 0 (trade rejected due to risk/margin)
+            if position_size == 0:
+                logger.warning(f"⚠️ TRADE REJECTED: No safe position size available for {pair}")
+                logger.warning(f"   This could be due to insufficient margin or risk management restrictions")
+                return None
+            
+            logger.info(f"💰 Using INTELLIGENT position size: {position_size} units for {pair} at {confidence:.1%} confidence")
             
             # Check margin availability
             margin_check = self.trader.check_margin_availability(pair, position_size)
